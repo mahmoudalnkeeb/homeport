@@ -1,7 +1,8 @@
-import dotenv from "dotenv";
+import dotenv from 'dotenv';
 
 dotenv.config();
 
+// WIP
 const config = {
   port: process.env.PORT || 3000,
 };
