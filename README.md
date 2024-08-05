@@ -1,6 +1,4 @@
-# Utility Server
-
-A simple utility server for managing files, video streaming, chat, and suggestions with TypeScript and Express.
+# LocalServe
 
 ## Table of Contents
 
@@ -17,7 +15,7 @@ A simple utility server for managing files, video streaming, chat, and suggestio
 
 ## Introduction
 
-TypeScript-based Express http server designed for managing files, video/audio streaming and built in chat on local network.
+A **simple HTTP server** built with _TypeScript_ and _Express_. It **manages files**, streams **video and audio**, shows **documents and images**, and includes a **built-in chat feature**. Perfect for use on a **local network**.s documents and images, and includes a built-in chat feature. Perfect for use on a local network.
 
 ## Features
 
