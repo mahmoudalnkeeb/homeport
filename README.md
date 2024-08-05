@@ -1,5 +1,7 @@
 # LocalServe
 
+---
+
 ## Table of Contents
 
 - [Introduction](#introduction)
