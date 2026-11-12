@@ -52,7 +52,7 @@ Inside Docker, the CPU, memory and disk figures describe the container's host VM
 | `/`             | Overview: CPU/memory/disk, request traffic, storage breakdown, recent files, activity feed, quick actions |
 | `/tools/files/` | File manager: list/grid views, drag-and-drop uploads with progress, preview & streaming for video, audio, images, PDF and text, rename, delete |
 | `/tools/markdown/` | Markdown editor (from `md-viewer`): write/split/read views, highlighting, Mermaid with pan & zoom, save to the data folder with <kbd>Ctrl</kbd>+<kbd>S</kbd> |
-| `/ds/`          | Design system reference (tokens and components)                            |
+| `/ds/`          | Internal design system reference (not linked in the UI)                    |
 
 ### API
 

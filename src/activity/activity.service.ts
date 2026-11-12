@@ -21,7 +21,6 @@ export function areaOf(path: string): string | null {
   const isPage = !/\.[a-z0-9]+$/i.test(path) || path.endsWith('.html');
   if (!isPage) return null;
   if (first === 'tools' && second) return second;
-  if (first === 'ds') return 'design-system';
   return null;
 }
 

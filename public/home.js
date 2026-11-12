@@ -77,7 +77,6 @@ function renderSystem(system) {
 
 function areaName(area) {
   if (area === 'home') return 'Overview';
-  if (area === 'design-system') return 'Design system';
   return tools.find((tool) => tool.id === area)?.name ?? area;
 }
 

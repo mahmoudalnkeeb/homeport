@@ -302,7 +302,7 @@ function themeControl() {
 let toolsPromise;
 export const loadTools = () => (toolsPromise ??= api('/api/tools').catch(() => []));
 
-/** Renders the sidebar into #sidebar. `active` is "home", "design-system" or a tool id. */
+/** Renders the sidebar into #sidebar. `active` is "home" or a tool id; internal pages pass anything else. */
 export async function mountShell(active) {
   const sidebar = document.getElementById('sidebar');
   const link = (href, iconName, label, id) =>
@@ -315,8 +315,6 @@ export async function mountShell(active) {
         ${link('/', 'home', 'Overview', 'home')}
         <div class="nav-label">Tools</div>
         ${tools.map((tool) => link(tool.href, tool.icon, tool.name, tool.id)).join('')}
-        <div class="nav-label">System</div>
-        ${link('/ds/', 'palette', 'Design system', 'design-system')}
       </nav>
       <div class="sidebar-foot"></div>`;
     sidebar.querySelector('.sidebar-foot').append(themeControl());

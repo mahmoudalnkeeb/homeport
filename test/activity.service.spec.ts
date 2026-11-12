@@ -10,7 +10,7 @@ describe('areaOf', () => {
     ['/api/activity', null],
     ['/tools/markdown/', 'markdown'],
     ['/tools/markdown/markdown.js', null],
-    ['/ds/', 'design-system'],
+    ['/ds/', null],
     ['/ds/ds.css', null],
     ['/vendor/mermaid/mermaid.esm.min.mjs', null],
   ])('%s -> %s', (path, area) => {
