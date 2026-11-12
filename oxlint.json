@@ -1,0 +1,11 @@
+{
+  "$schema": "https://oxc.rs/oxlint/configuration",
+  "plugins": ["typescript", "unicorn"],
+  "rules": {
+    "no-debugger": "error",
+    "no-console": "warn",
+    "no-unused-vars": "error",
+    "typescript/no-explicit-any": "error",
+    "typescript/no-non-null-assertion": "warn"
+  }
+}

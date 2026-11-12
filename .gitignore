@@ -1,9 +1,10 @@
 node_modules
 dist
+coverage
+*.tsbuildinfo
 .env
-*.mp4
-!.mp4
-*.pdf
-!.pdf
-*.mp3
-!.mp3
+
+# Managed data stays local; keep only the folder placeholders.
+data/**
+!data/*/
+!data/*/.*

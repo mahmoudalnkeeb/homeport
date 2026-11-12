@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Markdown · Homelab</title>
+    <script src="/ds/theme.js"></script>
+    <link rel="icon" href="/ds/favicon.svg" />
+    <link rel="stylesheet" href="/ds/ds.css" />
+    <link rel="stylesheet" href="./markdown.css" />
+  </head>
+  <body>
+    <div class="app">
+      <aside class="sidebar" id="sidebar"></aside>
+      <main class="main flush">
+        <header class="md-bar">
+          <div class="md-doc">
+            <span class="row-icon" id="doc-icon"></span>
+            <div class="row-main">
+              <span class="row-title"><span id="doc-name">Untitled</span><span class="dirty" id="dirty" hidden title="Unsaved changes">●</span></span>
+              <span class="row-meta truncate" id="doc-meta">Draft · stored in this browser</span>
+            </div>
+          </div>
+          <div class="segmented" role="group" aria-label="View" id="views"></div>
+          <div class="cluster md-actions">
+            <button class="btn btn-ghost btn-sm" id="new" type="button"></button>
+            <button class="btn btn-ghost btn-sm" id="open-local" type="button"></button>
+            <input type="file" id="file-input" accept=".md,.markdown,.mdx,.txt,text/markdown" hidden />
+            <button class="btn btn-ghost btn-sm" id="download" type="button"></button>
+            <button class="btn btn-primary btn-sm" id="save" type="button"></button>
+          </div>
+        </header>
+        <div class="md-workspace" id="workspace" data-view="split">
+          <label class="sr-only" for="editor">Markdown source</label>
+          <textarea id="editor" spellcheck="false" autocomplete="off"></textarea>
+          <div class="md-preview" id="preview"><article class="prose" id="output"></article></div>
+        </div>
+      </main>
+    </div>
+    <script src="/vendor/svg-pan-zoom/svg-pan-zoom.min.js"></script>
+    <script type="module" src="./markdown.js"></script>
+  </body>
+</html>

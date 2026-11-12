@@ -1,0 +1,149 @@
+.md-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-4);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+.md-doc {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 180px;
+}
+.md-doc .row-icon {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+.dirty {
+  margin-left: 6px;
+  color: var(--accent);
+  font-size: var(--text-xs);
+}
+.md-actions {
+  flex: 1;
+  justify-content: flex-end;
+}
+
+.md-workspace {
+  display: grid;
+  flex: 1;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  min-height: 0;
+}
+.md-workspace[data-view='write'] {
+  grid-template-columns: minmax(0, 1fr);
+}
+.md-workspace[data-view='write'] .md-preview,
+.md-workspace[data-view='read'] #editor {
+  display: none;
+}
+.md-workspace[data-view='read'] {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+#editor {
+  width: 100%;
+  height: 100%;
+  padding: var(--space-6);
+  border: 0;
+  border-right: 1px solid var(--border);
+  outline: none;
+  resize: none;
+  background: var(--bg);
+  color: var(--text);
+  font: 0.8125rem / 1.7 var(--font-mono);
+  tab-size: 2;
+}
+.md-workspace[data-view='write'] #editor {
+  max-width: 100%;
+  padding-inline: max(var(--space-6), calc((100% - 82ch) / 2));
+  border-right: 0;
+}
+.md-preview {
+  overflow: auto;
+  padding: var(--space-8) clamp(var(--space-4), 4vw, var(--space-12));
+  background: var(--surface);
+}
+
+/* Mermaid diagrams with pan / zoom */
+.diagram {
+  position: relative;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+.prose .diagram pre.mermaid {
+  height: var(--h, 300px);
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  background: transparent;
+}
+.diagram-tools {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  z-index: 1;
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  opacity: 0;
+  transition: opacity var(--dur-fast);
+}
+.diagram:hover .diagram-tools,
+.diagram:focus-within .diagram-tools,
+.diagram.maximized .diagram-tools {
+  opacity: 1;
+}
+.diagram.maximized {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+}
+.prose .diagram.maximized pre.mermaid {
+  height: 100%;
+}
+.diagram-error {
+  padding: var(--space-3);
+  border: 1px solid var(--danger);
+  border-radius: var(--radius-md);
+  background: var(--danger-soft);
+  color: var(--danger);
+  font: var(--text-xs) var(--font-mono);
+  white-space: pre-wrap;
+}
+
+body.dragging .md-workspace {
+  outline: 2px dashed var(--accent);
+  outline-offset: -8px;
+}
+
+@media (max-width: 800px) {
+  .md-workspace[data-view='split'] {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: 40% 60%;
+  }
+  .md-workspace[data-view='split'] #editor {
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .md-actions .btn span {
+    display: none;
+  }
+}
+@media (hover: none) {
+  .diagram-tools {
+    opacity: 1;
+  }
+}

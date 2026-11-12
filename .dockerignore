@@ -1,0 +1,10 @@
+node_modules
+dist
+coverage
+data
+.git
+.env
+*.tsbuildinfo
+test
+Dockerfile
+compose.yaml

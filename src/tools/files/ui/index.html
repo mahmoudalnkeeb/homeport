@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Files · Homelab</title>
+    <script src="/ds/theme.js"></script>
+    <link rel="icon" href="/ds/favicon.svg" />
+    <link rel="stylesheet" href="/ds/ds.css" />
+    <link rel="stylesheet" href="./files.css" />
+  </head>
+  <body>
+    <div class="app">
+      <aside class="sidebar" id="sidebar"></aside>
+      <main class="main">
+        <div class="main-inner">
+          <header class="page-header">
+            <div>
+              <h1>Files</h1>
+              <p>Stream, preview and manage everything in the data folder.</p>
+            </div>
+            <div class="cluster">
+              <button class="btn" id="new-folder" type="button"></button>
+              <button class="btn btn-primary" id="upload-button" type="button"></button>
+              <input type="file" id="upload-input" multiple hidden />
+            </div>
+          </header>
+
+          <div class="toolbar">
+            <ol class="breadcrumbs" id="crumbs" aria-label="Folder path"></ol>
+            <span class="spacer"></span>
+            <div class="input-group filter">
+              <span id="filter-icon"></span>
+              <input class="input" id="filter" type="search" placeholder="Filter this folder" aria-label="Filter this folder" />
+            </div>
+            <div class="segmented icon-only" role="group" aria-label="Layout" id="layout"></div>
+          </div>
+
+          <div class="uploads" id="uploads" hidden></div>
+          <div id="listing" aria-live="polite"></div>
+        </div>
+      </main>
+    </div>
+
+    <dialog class="dialog dialog-lg" id="preview">
+      <div class="dialog-head">
+        <span class="row-icon" id="preview-icon"></span>
+        <h2 id="preview-title"></h2>
+        <div class="cluster" id="preview-actions"></div>
+      </div>
+      <div class="dialog-body preview-body" id="preview-body"></div>
+    </dialog>
+
+    <div class="drop-overlay" aria-hidden="true"><div class="dropzone" id="drop-hint"></div></div>
+    <script type="module" src="./files.js"></script>
+  </body>
+</html>
