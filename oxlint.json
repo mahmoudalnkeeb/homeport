@@ -1,5 +1,5 @@
 {
-  "$schema": "https://oxc.rs/oxlint/configuration",
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
   "plugins": ["typescript", "unicorn", "react"],
   "ignorePatterns": ["**/dist/**"],
   "rules": {
