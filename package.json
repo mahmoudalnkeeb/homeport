@@ -1,47 +1,33 @@
 {
-  "name": "utility-server",
+  "name": "homelab",
   "version": "2.0.0",
-  "description": "Modular homelab utility server: files, media streaming, markdown and system analytics.",
+  "description": "Modular homelab utility server: NestJS API + Preact web app.",
   "private": true,
   "license": "MIT",
   "type": "module",
+  "packageManager": "pnpm@12.4.1",
   "engines": {
     "node": ">=24.15.0"
   },
   "scripts": {
-    "dev": "nest start --watch",
-    "build": "nest build",
-    "start": "node dist/main.js",
-    "typecheck": "tsc --noEmit",
-    "lint": "oxlint --config oxlint.json src test",
-    "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\" \"*.json\"",
-    "test": "vitest run",
-    "test:watch": "vitest"
-  },
-  "dependencies": {
-    "@highlightjs/cdn-assets": "^11.12.0",
-    "@nestjs/common": "^12.4.2",
-    "@nestjs/core": "^12.4.2",
-    "@nestjs/platform-express": "^12.4.2",
-    "dompurify": "^3.4.17",
-    "dotenv": "^18.0.10",
-    "marked": "^18.2.0",
-    "marked-highlight": "^2.2.4",
-    "mermaid": "^12.3.0",
-    "reflect-metadata": "^0.2.2",
-    "rxjs": "^7.8.2",
-    "svg-pan-zoom": "^3.6.2",
-    "zod": "^4.6.7"
+    "dev": "pnpm --filter @homelab/contracts --filter @homelab/host-metrics build && pnpm --parallel --filter @homelab/contracts --filter @homelab/host-metrics --filter @homelab/server --filter @homelab/web dev",
+    "build": "pnpm -r build",
+    "start": "pnpm --filter @homelab/server start",
+    "typecheck": "pnpm --filter @homelab/contracts --filter @homelab/host-metrics build && pnpm -r typecheck",
+    "lint": "oxlint --config oxlint.json apps packages",
+    "test": "pnpm --filter @homelab/contracts --filter @homelab/host-metrics build && pnpm -r test",
+    "format": "prettier --write \"{apps,packages}/*/{src,test}/**/*.{ts,tsx,css}\" \"*.json\"",
+    "agent": "pnpm --filter @homelab/agent... build && pnpm --filter @homelab/agent start",
+    "db:up": "docker compose up -d --wait postgres",
+    "db:down": "docker compose stop postgres",
+    "db:generate": "pnpm --filter @homelab/server db:generate",
+    "db:migrate": "pnpm --filter @homelab/server db:migrate",
+    "db:studio": "pnpm --filter @homelab/server db:studio",
+    "db:check": "pnpm --filter @homelab/server db:check"
   },
   "devDependencies": {
-    "@nestjs/cli": "^12.0.12",
-    "@nestjs/schematics": "^12.0.13",
-    "@types/express": "^5.0.6",
-    "@types/node": "^24.19.2",
     "oxlint": "^1.93.0",
     "prettier": "^3.10.0",
-    "typescript": "^6.0.3",
-    "vite": "^7.3.8",
-    "vitest": "^4.1.12"
+    "typescript": "^6.0.3"
   }
 }

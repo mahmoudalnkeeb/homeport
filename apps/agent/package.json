@@ -1,0 +1,23 @@
+{
+  "name": "@homelab/agent",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Host metrics agent. Runs natively on the host so a containerised server can report real host resources.",
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/main.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@homelab/host-metrics": "workspace:*"
+  },
+  "devDependencies": {
+    "@homelab/contracts": "workspace:*",
+    "@types/node": "^24.19.2",
+    "vitest": "^4.1.12",
+    "zod": "^4.6.7"
+  }
+}

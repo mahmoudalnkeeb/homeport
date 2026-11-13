@@ -17,12 +17,12 @@ Make the smallest correct change that fits the existing architecture. Optimize t
 - Reuse existing utilities and established patterns; do not create a second way to solve the same problem.
 - Do not add dependencies for functionality already available in Node.js or NestJS.
 - Do not add abstractions, wrappers, base classes, factories, generic repositories, or barrel files without a demonstrated second use case.
-- Avoid generated documentation, comments, and tests that merely restate the implementation.
+- Avoid generated documentation and tests that merely restate the implementation.
 - Keep final responses concise: changed paths, behavior, commands run, and any unresolved issue.
 
 ## Architecture
-- Organize code by business domain when domains exist: `src/<domain>/<domain>.module.ts`, controller, service, schemas, and persistence code only when needed.
-- Keep controllers transport-focused: parse input, call an application service, return its result.
+- Organize code by business domain: `src/<domain>/` holds `<domain>.module.ts` (the `@Module` only), `<domain>.controller.ts`, `<domain>.service.ts`, `<domain>.dto.ts` and, when it owns tables, `<domain>.schema.ts`. Controllers never live in a module file.
+- Keep controllers transport-only: take validated DTOs, call one service method, return its result. No business rules, no data shaping, no orchestration of several services.
 - Put business rules in services or focused domain functions, not controllers.
 - Keep modules explicit. Export providers only when another module consumes them.
 - Avoid circular dependencies. Do not solve them with `forwardRef()` until the dependency direction has been reconsidered.
@@ -37,14 +37,17 @@ Make the smallest correct change that fits the existing architecture. Optimize t
 - Prefer `async`/`await` when it improves readability. Do not wrap a returned promise in an unnecessary `async` function.
 - Use early returns when they simplify control flow.
 - Keep functions focused. Do not split short, cohesive logic into many one-line helpers.
-- Do not add comments that repeat the code. Explain only non-obvious constraints or decisions.
+- No code comments. Express intent through names, types and tests; put explanations in docs. Tool directives (`@ts-expect-error`, lint-disable) are the only exception.
 
 ## Validation and API contracts
-- Use Standard Schema-compatible schemas (Zod by default) as the source of truth for runtime validation and inferred input types.
-- Attach schemas to Nest route parameters with the NestJS 12 `schema` option and register `StandardSchemaValidationPipe` globally.
-- Do not duplicate a schema as a class-validator DTO, interface, and manual validator.
-- Validate all external input: HTTP, environment variables, queue messages, webhooks, and third-party responses.
-- Keep response contracts explicit when they are consumed outside this service.
+- HTTP input is validated by class-validator DTOs (`<domain>.dto.ts`) through the global `ValidationPipe` (whitelist + forbidNonWhitelisted). Every `@Body()`, `@Query()` and `@Param()` takes a DTO class. A request DTO `implements` its interface from `@homelab/contracts`.
+- List query DTOs extend `PaginationQueryDto`.
+- Every JSON handler declares `@Serialize(ResponseDto)` or `@EmptyResponse()`. Response DTOs `@Expose()` only the fields clients may see, so DB rows can be returned without leaking internals.
+- Responses are always `{ data }`, `{ data, meta }` for lists, or `{ error: { status, code, message, details? } }`. `ResponseInterceptor` and `HttpErrorFilter` produce them; never build an envelope by hand.
+- A service returning a list returns `Paginated` (`Paginated.of` for DB queries, `Paginated.slice` for in-memory lists, `Paginated.all` for short fixed lists). Returning a bare array from a handler is an error.
+- Use `AppError(status, code, message)` when the client needs a specific `ErrorCode`; otherwise plain Nest exceptions.
+- Zod stays for non-HTTP input only: environment variables (`config/env.ts`) and the host agent's response (`hostMetricsSchema`).
+- Never trust TypeScript types to validate runtime data.
 - Never trust TypeScript types to validate runtime data.
 
 ## Errors, logging, and security
@@ -53,7 +56,7 @@ Make the smallest correct change that fits the existing architecture. Optimize t
 - Use structured logs with stable event names and useful identifiers. Never log credentials, access tokens, or sensitive payloads.
 - Read secrets from environment/configuration; never hardcode them or commit `.env`.
 - Apply authorization at the relevant boundary; authentication alone is not authorization.
-- Use parameterized database queries. Avoid logging full request bodies by default.
+- Use the Drizzle query builder (parameterized). Raw SQL only through the `sql` template tag. Avoid logging full request bodies by default.
 
 ## Tests
 - Add or update tests for changed behavior, not implementation details.
@@ -68,7 +71,7 @@ Make the smallest correct change that fits the existing architecture. Optimize t
 - Before adding a dependency, verify it supports the project's Node.js and NestJS versions and explain why existing tools are insufficient.
 - Keep all `@nestjs/*` packages on the same major version.
 - Update the lockfile only when dependencies change. Never hand-edit it.
-- Do not edit generated output in `dist/`.
+- Do not edit generated output in `dist/` or migrations in `apps/server/drizzle/`. Change a `*.schema.ts`, then run `pnpm db:generate`.
 - Do not run broad formatting over unrelated files.
 
 ## Definition of done
@@ -78,6 +81,14 @@ Make the smallest correct change that fits the existing architecture. Optimize t
 - No unrelated files, dependencies, or architecture were changed.
 
 ## This project
-- Tools live in `src/tools/<id>/` and register via `TOOLS` in `src/tools/registry.ts`; see README "Adding a tool".
-- Tool UIs are static files in `src/tools/<id>/ui/` (copied to `dist` by nest-cli assets) and must use the design system in `public/ds/` — read `DESIGN.md` before UI work.
+- pnpm monorepo: `apps/server` (NestJS 12 API), `apps/web` (Preact + Vite SPA), `apps/agent` (native host metrics agent), `packages/contracts` (shared API types, envelope and error codes), `packages/host-metrics` (sampler used by server and agent), `packages/ui` (design system). Run scripts from the root (`pnpm dev|build|test|typecheck|lint`).
+- A tool is a server module in `apps/server/src/tools/<id>/` (registered in `TOOLS`) plus a client page in `apps/web/src/tools/<id>/` (registered in `CLIENT_TOOLS`); see README "Adding a tool".
+- API shapes live only in `@homelab/contracts`. Server DTOs implement them; the web client types against them. Never redeclare them in an app.
+- UI is built from `@homelab/ui` components; read `DESIGN.md` before UI work. Extend the package rather than restyling components inside a tool.
 - All filesystem access goes through `FilesService.resolve()`; never join client paths to `DATA_DIR` directly.
+- Auth: every route needs a session unless marked `@Public()`. Gate admin routes with `@RequirePermission(...)`, and file paths with `pathAccess()` from `@homelab/contracts`, the single rule both the server and the UI use. Roles and permissions live only in `ROLE_PERMISSIONS`.
+- Database: Postgres via Drizzle. Each module owns its tables in its own `*.schema.ts` (users, sessions, activity); there is no central schema file. Inject the client with `@InjectDb()` and use the query builder. Migrations run at startup unless `DB_MIGRATE=false`.
+- Tests use PGlite with the real migrations (`test/support.ts`); no Docker needed. End-to-end tests boot `AppModule` and override the `DB` provider.
+- `STATE_DIR` holds only the initial admin password file and must never be inside `DATA_DIR`. Never log passwords, session tokens or temporary passwords.
+- Server paths (`.env`, `DATA_DIR`, `WEB_DIST`) resolve from the repository root via `REPO_ROOT`, because package scripts run from `apps/server`.
+- Host metrics: inside Docker Desktop/WSL the server sees a VM, so it reads the host agent first and labels any fallback via `SystemSnapshot.source`. Never present VM numbers as host numbers. The agent stays dependency-free and read-only.

@@ -8,3 +8,7 @@ coverage
 data/**
 !data/*/
 !data/*/.*
+.impeccable
+
+# Accounts and sessions (never commit).
+state/

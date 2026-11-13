@@ -1,0 +1,28 @@
+{
+  "name": "@homelab/host-metrics",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Dependency-free host metric sampling shared by the server and the host agent.",
+  "exports": {
+    ".": {
+      "source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsc -p tsconfig.json --watch --preserveWatchOutput",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@homelab/contracts": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "vitest": "^4.1.12"
+  }
+}
