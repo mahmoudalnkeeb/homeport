@@ -1,8 +1,7 @@
 import { extname } from 'node:path';
 
 import { Body, Controller, Delete, Get, HttpCode, Post, Put, Query, Res, UploadedFiles, UseInterceptors } from '@nestjs/common';
-import { FilesInterceptor } from '@nestjs/platform-express';
-import type { Response } from 'express';
+import { FilesInterceptor, type NodeResponse } from '@nestjs/platform-node';
 
 import { CurrentUser, RequirePermission } from '../../auth/auth.decorators.js';
 import { EmptyResponse, RawResponse, Serialize } from '../../common/http/serialize.js';
@@ -36,19 +35,15 @@ export class FilesController {
 
   @Get('raw')
   @RawResponse()
-  async raw(@CurrentUser() user: User, @Query() query: RawQueryDto, @Res() res: Response): Promise<void> {
+  async raw(@CurrentUser() user: User, @Query() query: RawQueryDto, @Res() res: NodeResponse): Promise<void> {
     const { absolute, name } = await this.files.file(user, query.path);
     res.setHeader('X-Content-Type-Options', 'nosniff');
     if (ACTIVE_CONTENT.has(extname(name).toLowerCase())) res.setHeader('Content-Security-Policy', 'sandbox');
     const done = (error?: Error) => {
       if (error && !res.headersSent) res.status(500).end();
     };
-    if (query.download) {
-      res.download(absolute, name, { dotfiles: 'allow' }, done);
-      return;
-    }
-    res.setHeader('Content-Disposition', `inline; filename*=UTF-8''${encodeURIComponent(name)}`);
-    res.sendFile(absolute, { dotfiles: 'allow' }, done);
+    const disposition = `${query.download ? 'attachment' : 'inline'}; filename*=UTF-8''${encodeURIComponent(name)}`;
+    res.sendFile(absolute, { dotfiles: 'allow', headers: { 'Content-Disposition': disposition } }, done);
   }
 
   @RequirePermission('files:write')

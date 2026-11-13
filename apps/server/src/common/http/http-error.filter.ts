@@ -1,6 +1,6 @@
 import { Catch, HttpException, HttpStatus, Logger, type ArgumentsHost, type ExceptionFilter } from '@nestjs/common';
 import type { ApiErrorDetail, ApiErrorResponse, ErrorCode } from '@homelab/contracts';
-import type { Response } from 'express';
+import type { NodeResponse } from '@nestjs/platform-node';
 
 const CODE_BY_STATUS: Partial<Record<number, ErrorCode>> = {
   [HttpStatus.BAD_REQUEST]: 'BAD_REQUEST',
@@ -34,7 +34,7 @@ export class HttpErrorFilter implements ExceptionFilter {
   private readonly logger = new Logger('HttpError');
 
   catch(exception: unknown, host: ArgumentsHost): void {
-    const response = host.switchToHttp().getResponse<Response>();
+    const response = host.switchToHttp().getResponse<NodeResponse>();
     if (response.headersSent) return;
 
     if (exception instanceof HttpException && exception.getStatus() < 500) {

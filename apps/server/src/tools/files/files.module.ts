@@ -2,7 +2,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { Module } from '@nestjs/common';
-import { MulterModule } from '@nestjs/platform-express';
+import { MulterModule } from '@nestjs/platform-node';
 
 import { ENV, type Environment } from '../../config/env.js';
 import { FilesController } from './files.controller.js';

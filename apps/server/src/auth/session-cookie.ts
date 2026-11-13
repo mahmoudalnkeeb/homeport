@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import type { Request, Response } from 'express';
+import type { NodeRequest, NodeResponse } from '@nestjs/platform-node';
 
 import { ENV, type Environment } from '../config/env.js';
 
@@ -9,7 +9,7 @@ export const SESSION_COOKIE = 'homelab_session';
 export class SessionCookie {
   constructor(@Inject(ENV) private readonly env: Environment) {}
 
-  read(request: Request): string | undefined {
+  read(request: NodeRequest): string | undefined {
     for (const part of (request.headers.cookie ?? '').split(';')) {
       const index = part.indexOf('=');
       if (index > 0 && part.slice(0, index).trim() === SESSION_COOKIE) {
@@ -19,7 +19,7 @@ export class SessionCookie {
     return undefined;
   }
 
-  set(request: Request, response: Response, token: string): void {
+  set(request: NodeRequest, response: NodeResponse, token: string): void {
     response.cookie(SESSION_COOKIE, token, {
       httpOnly: true,
       sameSite: 'lax',
@@ -29,7 +29,7 @@ export class SessionCookie {
     });
   }
 
-  clear(response: Response): void {
+  clear(response: NodeResponse): void {
     response.clearCookie(SESSION_COOKIE, { path: '/' });
   }
 }

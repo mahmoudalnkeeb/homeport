@@ -1,11 +1,11 @@
 import 'reflect-metadata';
 
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import type { INestApplication } from '@nestjs/common';
+import { NodeAdapter, type NestNodeApplication } from '@nestjs/platform-node';
 import { Test } from '@nestjs/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
@@ -14,7 +14,7 @@ import { DB } from '../src/database/database.js';
 import { createTestDatabase } from './support.js';
 
 describe('HTTP API', () => {
-  let app: INestApplication;
+  let app: NestNodeApplication;
   let base: string;
   let dir: string;
   let closeDb: () => Promise<void>;
@@ -35,7 +35,7 @@ describe('HTTP API', () => {
       .overrideProvider(DB)
       .useValue(database.db)
       .compile();
-    app = moduleRef.createNestApplication({ logger: false });
+    app = moduleRef.createNestApplication<NestNodeApplication>(new NodeAdapter(), { logger: false });
     app.setGlobalPrefix('api');
     await app.listen(0, '127.0.0.1');
     base = `http://127.0.0.1:${(app.getHttpServer().address() as AddressInfo).port}/api`;
@@ -172,6 +172,27 @@ describe('HTTP API', () => {
     const again = await signIn('carol', 'temporary-2');
     expect((await call('/users/carol', { method: 'PATCH', cookie: admin, json: { disabled: true } })).status).toBe(200);
     expect((await call('/auth/me', { cookie: again })).status).toBe(401);
+  });
+
+  it('streams files with range support, inline or as a download', async () => {
+    const admin = await signIn('admin', ADMIN_PASSWORD);
+    await mkdir(join(dir, 'data', 'video'), { recursive: true });
+    await writeFile(join(dir, 'data', 'video', 'clip one.mp4'), '0123456789');
+    const path = encodeURIComponent('video/clip one.mp4');
+
+    const partial = await fetch(`${base}/files/raw?path=${path}`, { headers: { Cookie: admin, Range: 'bytes=2-5' } });
+    expect(partial.status).toBe(206);
+    expect(partial.headers.get('content-range')).toBe('bytes 2-5/10');
+    expect(partial.headers.get('content-disposition')).toBe("inline; filename*=UTF-8''clip%20one.mp4");
+    expect(await partial.text()).toBe('2345');
+
+    const download = await fetch(`${base}/files/raw?path=${path}&download=true`, { headers: { Cookie: admin } });
+    expect(download.status).toBe(200);
+    expect(download.headers.get('content-disposition')).toBe("attachment; filename*=UTF-8''clip%20one.mp4");
+
+    const missing = await call('/files/raw?path=video/none.mp4', { cookie: admin });
+    expect(missing.status).toBe(404);
+    expect(await body(missing)).toMatchObject({ error: { code: 'NOT_FOUND' } });
   });
 
   it('keeps at least one active admin', async () => {
