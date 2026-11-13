@@ -1,6 +1,6 @@
 import { Injectable, type CallHandler, type ExecutionContext, type NestInterceptor, type Type } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import type { ApiListResponse, ApiResponse } from '@homelab/contracts';
+import type { ApiListResponse, ApiResponse } from '@homeport/contracts';
 import { instanceToPlain, plainToInstance } from 'class-transformer';
 import { map, type Observable } from 'rxjs';
 

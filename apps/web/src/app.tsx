@@ -1,5 +1,5 @@
-import type { Permission, ToolInfo } from '@homelab/contracts';
-import { AppShell, AuthLayout, EmptyState, LinkButton, Skeleton, type NavGroup, type NavItem } from '@homelab/ui';
+import type { Permission, ToolInfo } from '@homeport/contracts';
+import { AppShell, AuthLayout, EmptyState, LinkButton, Skeleton, type NavGroup, type NavItem } from '@homeport/ui';
 import { createContext, type ComponentType } from 'preact';
 import { ErrorBoundary, lazy, LocationProvider, Route, Router, useLocation, useRoute } from 'preact-iso';
 import { useCallback, useContext, useEffect, useMemo } from 'preact/hooks';
@@ -7,6 +7,7 @@ import { useCallback, useContext, useEffect, useMemo } from 'preact/hooks';
 import { api } from './api';
 import { AuthProvider, useAuth, useAuthState } from './auth';
 import { useResource } from './hooks';
+import { PlayerProvider } from './media';
 import { ChooseNewPassword } from './pages/auth/ChooseNewPassword';
 import { SignIn } from './pages/auth/SignIn';
 import { CLIENT_TOOLS } from './tools/registry';
@@ -94,34 +95,35 @@ function Shell() {
   const activeId = activeIdOf(path);
   return (
     <ToolsContext.Provider value={tools}>
-      <AppShell
-        brand="homelab"
-        version="v2"
-        nav={nav}
-        tabs={tabs}
-        activeId={activeId}
-        user={{ name: me.displayName, detail: ROLE_LABEL[me.role], href: '/account' }}
-        onSignOut={signOut}
-        flush={Boolean(activeId && CLIENT_TOOLS[activeId]?.flush)}
-      >
-        <ErrorBoundary>
-          <Router>
-            <Route path="/" component={Home} />
-            <Route path="/tools/:id" component={ToolRoute} />
-            <Route path="/users" component={AdminUsers} />
-            <Route path="/account" component={AccountPage} />
-            <Route path="/ds" component={InternalDesignSystem} />
-            <Route default component={NotFound} />
-          </Router>
-        </ErrorBoundary>
-      </AppShell>
+      <PlayerProvider>
+        <AppShell
+          brand="homeport"
+          nav={nav}
+          tabs={tabs}
+          activeId={activeId}
+          user={{ name: me.displayName, detail: ROLE_LABEL[me.role], href: '/account' }}
+          onSignOut={signOut}
+          flush={Boolean(activeId && CLIENT_TOOLS[activeId]?.flush)}
+        >
+          <ErrorBoundary>
+            <Router>
+              <Route path="/" component={Home} />
+              <Route path="/tools/:id" component={ToolRoute} />
+              <Route path="/users" component={AdminUsers} />
+              <Route path="/account" component={AccountPage} />
+              <Route path="/ds" component={InternalDesignSystem} />
+              <Route default component={NotFound} />
+            </Router>
+          </ErrorBoundary>
+        </AppShell>
+      </PlayerProvider>
     </ToolsContext.Provider>
   );
 }
 
 function Loading() {
   return (
-    <AuthLayout brand="homelab">
+    <AuthLayout brand="homeport">
       <Skeleton height="20px" width="60%" />
       <Skeleton height="40px" />
       <Skeleton height="40px" />

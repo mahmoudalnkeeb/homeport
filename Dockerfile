@@ -15,22 +15,22 @@ COPY packages/ui/package.json packages/ui/
 RUN pnpm install --frozen-lockfile
 COPY apps ./apps
 COPY packages ./packages
-RUN pnpm --filter @homelab/server... --filter @homelab/web build
-RUN pnpm --filter @homelab/server deploy --prod --legacy /out
+RUN pnpm --filter @homeport/server... --filter @homeport/web build
+RUN pnpm --filter @homeport/server deploy --prod --legacy /out
 
 FROM node:24-alpine AS runtime
+RUN apk add --no-cache ffmpeg
 ENV NODE_ENV=production \
     HOST=0.0.0.0 \
     PORT=3000 \
-    DATA_DIR=/data \
     STATE_DIR=/state \
     WEB_DIST=/app/web
 WORKDIR /app
 COPY --from=build --chown=node:node /out ./
 COPY --from=build --chown=node:node /repo/apps/web/dist ./web
-RUN mkdir -p /data /state && chown node:node /data /state
+RUN mkdir -p /state && chown node:node /state
 USER node
-VOLUME ["/data", "/state"]
+VOLUME ["/state"]
 EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s \
   CMD wget -qO- "http://127.0.0.1:${PORT}/api/health" > /dev/null || exit 1

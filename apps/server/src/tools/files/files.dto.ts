@@ -3,29 +3,25 @@ import {
   RECENT_SCOPES,
   type FileEntry,
   type FileKind,
+  type FileUploadStartBody,
   type FolderQuery,
   type RecentQuery,
   type RecentScope,
   type RenameBody,
   type RenameResult,
   type WriteTextBody,
-} from '@homelab/contracts';
+} from '@homeport/contracts';
 import { Expose } from 'class-transformer';
 import { IsBoolean, IsIn, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 
+import { ExposeNested } from '../../common/http/expose.js';
 import { PaginationQueryDto } from '../../common/http/pagination.js';
 import { QueryBoolean, Trim } from '../../common/http/validation.js';
+import { StreamInfoDto } from '../../media/media.dto.js';
+import { UploadStartDto } from '../../storage/storage.dto.js';
 
 const PATH_MAX = 1024;
 const TEXT_MAX = 10 * 1024 * 1024;
-
-export class OptionalPathQueryDto {
-  @IsOptional()
-  @Trim()
-  @IsString()
-  @MaxLength(PATH_MAX)
-  path: string = '';
-}
 
 export class RequiredPathDto {
   @Trim()
@@ -60,6 +56,14 @@ export class RecentQueryDto extends PaginationQueryDto implements RecentQuery {
   kind?: FileKind;
 }
 
+export class FileUploadStartDto extends UploadStartDto implements FileUploadStartBody {
+  @IsOptional()
+  @Trim()
+  @IsString()
+  @MaxLength(PATH_MAX)
+  folder: string = '';
+}
+
 export class WriteTextDto implements WriteTextBody {
   @Trim()
   @IsString()
@@ -92,6 +96,7 @@ export class FileEntryDto implements FileEntry {
   @Expose() kind!: FileKind;
   @Expose() size!: number;
   @Expose() modified!: string;
+  @ExposeNested(() => StreamInfoDto) stream?: StreamInfoDto | null;
 }
 
 export class RenameResultDto implements RenameResult {

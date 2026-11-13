@@ -1,4 +1,4 @@
-import type { ActivityEvent, ActivitySnapshot, PageViewBody } from '@homelab/contracts';
+import type { ActivityEvent, ActivitySnapshot, PageViewBody } from '@homeport/contracts';
 import { Expose, Transform } from 'class-transformer';
 import { IsString, Matches, MaxLength } from 'class-validator';
 

@@ -1,8 +1,8 @@
 import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 
-import { hostMetricsSchema } from '@homelab/contracts';
-import { HostSampler } from '@homelab/host-metrics';
+import { hostMetricsSchema } from '@homeport/contracts';
+import { HostSampler } from '@homeport/host-metrics';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { createAgentServer } from '../src/server';

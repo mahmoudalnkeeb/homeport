@@ -6,6 +6,7 @@ export default defineConfig({
   test: {
     include: ['test/**/*.spec.ts'],
     environment: 'node',
+    hookTimeout: 30_000,
     clearMocks: true,
     restoreMocks: true,
   },

@@ -1,6 +1,6 @@
 import 'reflect-metadata';
 
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, rm } from 'node:fs/promises';
 import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -11,6 +11,8 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { AppModule } from '../src/app.module.js';
 import { DB } from '../src/database/database.js';
+import { StorageService } from '../src/storage/storage.service.js';
+import { MemoryStorage } from './memory-storage.js';
 import { createTestDatabase } from './support.js';
 
 describe('HTTP API', () => {
@@ -18,12 +20,13 @@ describe('HTTP API', () => {
   let base: string;
   let dir: string;
   let closeDb: () => Promise<void>;
+  const storage = new MemoryStorage();
   const ADMIN_PASSWORD = 'admin-password-1';
 
   beforeAll(async () => {
     dir = await mkdtemp(join(tmpdir(), 'http-spec-'));
     Object.assign(process.env, {
-      DATA_DIR: join(dir, 'data'),
+      TRANSCODE_CONCURRENCY: '0',
       STATE_DIR: join(dir, 'state'),
       ADMIN_PASSWORD,
       HOST_AGENT_URL: '',
@@ -34,6 +37,8 @@ describe('HTTP API', () => {
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(DB)
       .useValue(database.db)
+      .overrideProvider(StorageService)
+      .useValue(storage)
       .compile();
     app = moduleRef.createNestApplication<NestNodeApplication>(new NodeAdapter(), { logger: false });
     app.setGlobalPrefix('api');
@@ -52,7 +57,7 @@ describe('HTTP API', () => {
     return fetch(`${base}${path}`, {
       ...rest,
       headers: {
-        ...(csrf ? { 'X-Homelab-Request': '1' } : {}),
+        ...(csrf ? { 'X-Homeport-Request': '1' } : {}),
         ...(json === undefined ? {} : { 'Content-Type': 'application/json' }),
         ...(cookie ? { Cookie: cookie } : {}),
       },
@@ -174,25 +179,49 @@ describe('HTTP API', () => {
     expect((await call('/auth/me', { cookie: again })).status).toBe(401);
   });
 
-  it('streams files with range support, inline or as a download', async () => {
+  it('redirects media to signed storage URLs and proxies text and active content itself', async () => {
     const admin = await signIn('admin', ADMIN_PASSWORD);
-    await mkdir(join(dir, 'data', 'video'), { recursive: true });
-    await writeFile(join(dir, 'data', 'video', 'clip one.mp4'), '0123456789');
-    const path = encodeURIComponent('video/clip one.mp4');
+    await storage.put('files/video/clip one.mp4', '0123456789');
+    await storage.put('files/notes/a.md', '# Notes');
+    await storage.put('files/art/logo.svg', '<svg/>');
+    const raw = (path: string, query = '') =>
+      fetch(`${base}/files/raw?path=${encodeURIComponent(path)}${query}`, { headers: { Cookie: admin }, redirect: 'manual' });
 
-    const partial = await fetch(`${base}/files/raw?path=${path}`, { headers: { Cookie: admin, Range: 'bytes=2-5' } });
-    expect(partial.status).toBe(206);
-    expect(partial.headers.get('content-range')).toBe('bytes 2-5/10');
-    expect(partial.headers.get('content-disposition')).toBe("inline; filename*=UTF-8''clip%20one.mp4");
-    expect(await partial.text()).toBe('2345');
+    const inline = await raw('video/clip one.mp4');
+    expect(inline.status).toBe(302);
+    expect(inline.headers.get('location')).toBe(
+      `http://127.0.0.1:9000/files/video/clip%20one.mp4?disposition=${encodeURIComponent("inline; filename*=UTF-8''clip%20one.mp4")}`
+    );
+    const download = await raw('video/clip one.mp4', '&download=true');
+    expect(download.headers.get('location')).toContain(encodeURIComponent('attachment;'));
 
-    const download = await fetch(`${base}/files/raw?path=${path}&download=true`, { headers: { Cookie: admin } });
-    expect(download.status).toBe(200);
-    expect(download.headers.get('content-disposition')).toBe("attachment; filename*=UTF-8''clip%20one.mp4");
+    const markdown = await raw('notes/a.md');
+    expect(markdown.status).toBe(200);
+    expect(markdown.headers.get('content-type')).toBe('text/markdown; charset=utf-8');
+    expect(await markdown.text()).toBe('# Notes');
+    expect((await raw('art/logo.svg')).headers.get('content-security-policy')).toBe('sandbox');
 
     const missing = await call('/files/raw?path=video/none.mp4', { cookie: admin });
     expect(missing.status).toBe(404);
     expect(await body(missing)).toMatchObject({ error: { code: 'NOT_FOUND' } });
+  });
+
+  it('runs the attachment upload handshake and serves stable links', async () => {
+    const admin = await signIn('admin', ADMIN_PASSWORD);
+    const ticket = (await body(await call('/attachments/uploads', { method: 'POST', cookie: admin, json: { name: 'song.mp3', size: 4 } })))
+      .data as { target: string; uploadId: string | null; contentType: string; partUrls: string[] };
+    expect(ticket).toMatchObject({ uploadId: null, contentType: 'audio/mpeg', partUrls: [expect.any(String)] });
+    await storage.upload({ ...ticket, partSize: 4 }, 'tune');
+
+    const finished = await call('/attachments/uploads/finish', { method: 'POST', cookie: admin, json: { target: ticket.target } });
+    expect(finished.status).toBe(201);
+    const { data: attachment } = (await body(finished)) as { data: { id: string; url: string; category: string } };
+    expect(attachment).toMatchObject({ category: 'audio', url: `/api/attachments/${attachment.id}/raw` });
+
+    const link = await fetch(`http://127.0.0.1:${new URL(base).port}${attachment.url}`, { headers: { Cookie: admin }, redirect: 'manual' });
+    expect(link.status).toBe(302);
+    expect((await call('/attachments/not-a-uuid', { cookie: admin })).status).toBe(422);
+    expect(await body(await call('/attachments?category=audio', { cookie: admin }))).toMatchObject({ meta: { total: 1 } });
   });
 
   it('keeps at least one active admin', async () => {

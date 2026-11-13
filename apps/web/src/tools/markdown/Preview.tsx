@@ -1,4 +1,4 @@
-import { IconButton, useTheme } from '@homelab/ui';
+import { IconButton, useTheme } from '@homeport/ui';
 import { render } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import svgPanZoom from 'svg-pan-zoom';

@@ -1,4 +1,4 @@
-import type { FileEntry } from '@homelab/contracts';
+import { isStreamable, type FileEntry } from '@homeport/contracts';
 import {
   ActionSheet,
   Breadcrumbs,
@@ -12,7 +12,6 @@ import {
   IconButton,
   Input,
   KIND_ICON,
-  Meter,
   Notice,
   PageHeader,
   Rows,
@@ -23,16 +22,17 @@ import {
   toast,
   type Column,
   type SheetAction,
-} from '@homelab/ui';
+} from '@homeport/ui';
 import { useLocation } from 'preact-iso';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 
-import { api, rawUrl } from '../../api';
+import { api, rawUrl, uploadFiles } from '../../api';
 import { useAuth } from '../../auth';
 import { PHONE, useFileDrop, useMediaQuery, usePreference, useResource } from '../../hooks';
+import { streamLabel, usePlayer, type Track } from '../../media';
+import { UploadList, useUploads } from '../../uploads';
 import { PreviewDialog } from './PreviewDialog';
-import { useUploads } from './useUploads';
-import './files.css';
+import '../../library.css';
 
 const LAYOUTS = ['list', 'grid'] as const;
 type Layout = (typeof LAYOUTS)[number];
@@ -42,6 +42,15 @@ const joinPath = (folder: string, name: string) => (folder ? `${folder}/${name}`
 const filesUrl = (path: string, extra = '') =>
   `/tools/files${path || extra ? '?' : ''}${path ? `path=${encodeURIComponent(path)}` : ''}${path && extra ? '&' : ''}${extra}`;
 const markdownUrl = (path: string) => `/tools/markdown?file=${encodeURIComponent(path)}`;
+const isMedia = (entry: FileEntry): entry is FileEntry & { kind: 'video' | 'audio' } => isStreamable(entry.kind);
+const toTrack = (entry: FileEntry & { kind: 'video' | 'audio' }): Track => ({
+  id: entry.path,
+  kind: entry.kind,
+  title: entry.name,
+  src: rawUrl(entry.path),
+  download: rawUrl(entry.path, true),
+  stream: entry.stream,
+});
 
 export default function FilesPage() {
   const { query, route } = useLocation();
@@ -70,19 +79,38 @@ export default function FilesPage() {
   const reloadListing = listing.reload;
   const writable = listing.data !== undefined && canWrite(path);
 
+  const play = usePlayer();
+  const playFrom = useCallback(
+    (entry: FileEntry, siblings: FileEntry[]) => {
+      const queue = siblings.filter(isMedia);
+      play(
+        queue.map(toTrack),
+        Math.max(
+          0,
+          queue.findIndex((item) => item.path === entry.path)
+        )
+      );
+    },
+    [play]
+  );
+
   const openPath = query.open;
+  const handledOpen = useRef<string | undefined>(undefined);
   useEffect(() => {
     const entry = listing.data?.find((candidate) => candidate.path === openPath);
-    if (entry) setPreview(entry);
-  }, [listing.data, openPath]);
+    if (!entry || handledOpen.current === openPath) return;
+    handledOpen.current = openPath;
+    if (isMedia(entry)) playFrom(entry, listing.data ?? []);
+    else setPreview(entry);
+  }, [listing.data, openPath, playFrom]);
 
-  const { jobs, upload } = useUploads(
-    useCallback(
-      (folder: string) => {
-        if (folder === path) void reloadListing();
-      },
-      [path, reloadListing]
-    )
+  const { jobs, upload: track } = useUploads();
+  const upload = useCallback(
+    async (folder: string, files: File[]) => {
+      const done = await track(files, (onProgress) => uploadFiles(folder, files, onProgress));
+      if (done && folder === path) void reloadListing();
+    },
+    [track, path, reloadListing]
   );
   const dragging = useFileDrop((files) => {
     if (writable) void upload(path, files);
@@ -95,7 +123,11 @@ export default function FilesPage() {
     return needle ? all.filter((entry) => entry.name.toLowerCase().includes(needle)) : all;
   }, [listing.data, filter]);
 
-  const open = (entry: FileEntry) => (entry.kind === 'folder' ? navigate(entry.path) : setPreview(entry));
+  const open = (entry: FileEntry) => {
+    if (entry.kind === 'folder') navigate(entry.path);
+    else if (isMedia(entry)) playFrom(entry, entries);
+    else setPreview(entry);
+  };
 
   const run = async (action: () => Promise<unknown>) => {
     try {
@@ -138,10 +170,16 @@ export default function FilesPage() {
 
   const actionsFor = (entry: FileEntry): SheetAction[] => {
     const actions: SheetAction[] = [
-      { label: entry.kind === 'folder' ? 'Open' : 'Preview', icon: entry.kind === 'folder' ? 'folder' : 'eye', onSelect: () => open(entry) },
+      {
+        label: entry.kind === 'folder' ? 'Open' : 'Preview',
+        icon: entry.kind === 'folder' ? 'folder' : 'eye',
+        onSelect: () => open(entry),
+      },
     ];
-    if (entry.kind === 'markdown') actions.push({ label: 'Open in Markdown', icon: 'file-text', onSelect: () => route(markdownUrl(entry.path)) });
-    if (entry.kind !== 'folder') actions.push({ label: 'Download', icon: 'download', onSelect: () => location.assign(rawUrl(entry.path, true)) });
+    if (entry.kind === 'markdown')
+      actions.push({ label: 'Open in Markdown', icon: 'file-text', onSelect: () => route(markdownUrl(entry.path)) });
+    if (entry.kind !== 'folder')
+      actions.push({ label: 'Download', icon: 'download', onSelect: () => location.assign(rawUrl(entry.path, true)) });
     if (writable) {
       actions.push(
         { label: 'Rename', icon: 'pencil', onSelect: () => void renameEntry(entry) },
@@ -173,7 +211,16 @@ export default function FilesPage() {
         </div>
       ),
     },
-    { key: 'kind', header: 'Type', render: (entry) => <span class="kind-cell">{entry.kind}</span> },
+    {
+      key: 'kind',
+      header: 'Type',
+      render: (entry) => (
+        <span class="kind-cell">
+          {entry.kind}
+          {entry.stream && ` · ${streamLabel(entry.stream)}`}
+        </span>
+      ),
+    },
     { key: 'size', header: 'Size', numeric: true, render: (entry) => (entry.kind === 'folder' ? '—' : formatBytes(entry.size)) },
     {
       key: 'modified',
@@ -188,10 +235,20 @@ export default function FilesPage() {
       render: (entry) => (
         <div class="row-actions">
           {entry.kind === 'markdown' && (
-            <IconButton size="sm" icon="file-text" label={`Open ${entry.name} in Markdown`} onClick={() => route(markdownUrl(entry.path))} />
+            <IconButton
+              size="sm"
+              icon="file-text"
+              label={`Open ${entry.name} in Markdown`}
+              onClick={() => route(markdownUrl(entry.path))}
+            />
           )}
           {entry.kind !== 'folder' && (
-            <IconButton size="sm" icon="download" label={`Download ${entry.name}`} onClick={() => location.assign(rawUrl(entry.path, true))} />
+            <IconButton
+              size="sm"
+              icon="download"
+              label={`Download ${entry.name}`}
+              onClick={() => location.assign(rawUrl(entry.path, true))}
+            />
           )}
           {writable && <IconButton size="sm" icon="pencil" label={`Rename ${entry.name}`} onClick={() => renameEntry(entry)} />}
           {writable && <IconButton size="sm" icon="trash" label={`Delete ${entry.name}`} onClick={() => deleteEntry(entry)} />}
@@ -206,7 +263,9 @@ export default function FilesPage() {
     <>
       <PageHeader
         title="Files"
-        description={space === 'home' ? 'Your private space. Only you and admins can see it.' : 'The shared library everyone can stream from.'}
+        description={
+          space === 'home' ? 'Your private space. Only you and admins can see it.' : 'The shared library everyone can stream from.'
+        }
         actions={
           writable && (
             <>
@@ -247,7 +306,14 @@ export default function FilesPage() {
         <Breadcrumbs label="Folder path" items={crumbs} />
         <span class="spacer" />
         <div class="filter">
-          <Input type="search" icon="search" label="Filter this folder" placeholder="Filter this folder" value={filter} onValue={setFilter} />
+          <Input
+            type="search"
+            icon="search"
+            label="Filter this folder"
+            placeholder="Filter this folder"
+            value={filter}
+            onValue={setFilter}
+          />
         </div>
         <Segmented
           label="Layout"
@@ -264,25 +330,12 @@ export default function FilesPage() {
       {listing.data && !writable && (
         <div class="files-notice">
           <Notice title="Read-only">
-            You can browse, stream and download here. To upload or write notes, use{' '}
-            <a href={filesUrl(me.home)}>My files</a>.
+            You can browse, stream and download here. To upload or write notes, use <a href={filesUrl(me.home)}>My files</a>.
           </Notice>
         </div>
       )}
 
-      {jobs.length > 0 && (
-        <div class="uploads">
-          {jobs.map((job) => (
-            <div key={job.id} class="upload-item">
-              <span class="truncate">{job.label}</span>
-              <span class="mono faint">
-                {Math.round(job.progress * 100)}% of {formatBytes(job.bytes)}
-              </span>
-              <Meter value={job.progress} label={`Uploading ${job.label}`} />
-            </div>
-          ))}
-        </div>
-      )}
+      <UploadList jobs={jobs} />
 
       {query.upload === '1' && writable && (
         <div class="dropzone upload-prompt">
@@ -309,8 +362,8 @@ export default function FilesPage() {
           {entries.map((entry) => (
             <button key={entry.path} type="button" class="tile" title={entry.name} onClick={() => open(entry)}>
               <span class="tile-thumb">
-                {entry.kind === 'image' ? (
-                  <img src={rawUrl(entry.path)} alt="" loading="lazy" decoding="async" />
+                {entry.kind === 'image' || entry.stream?.poster ? (
+                  <img src={entry.stream?.poster ?? rawUrl(entry.path)} alt="" loading="lazy" decoding="async" />
                 ) : (
                   <Icon name={KIND_ICON[entry.kind]} />
                 )}
@@ -348,14 +401,21 @@ export default function FilesPage() {
       )}
 
       <PreviewDialog entry={preview} onClose={() => setPreview(null)} />
-      <ActionSheet open={menuFor !== null} title={menuFor?.name ?? ''} actions={menuFor ? actionsFor(menuFor) : []} onClose={() => setMenuFor(null)} />
+      <ActionSheet
+        open={menuFor !== null}
+        title={menuFor?.name ?? ''}
+        actions={menuFor ? actionsFor(menuFor) : []}
+        onClose={() => setMenuFor(null)}
+      />
 
       {dragging && (
         <div class="drop-overlay" aria-hidden="true">
           <div class="dropzone">
             <Icon name={writable ? 'upload' : 'lock'} size="lg" />
             <strong>{writable ? 'Drop to upload' : 'Read-only folder'}</strong>
-            <span class="muted">{writable ? `into ${crumbs.map((crumb) => crumb.label).join(' / ')}` : 'Switch to My files to upload'}</span>
+            <span class="muted">
+              {writable ? `into ${crumbs.map((crumb) => crumb.label).join(' / ')}` : 'Switch to My files to upload'}
+            </span>
           </div>
         </div>
       )}

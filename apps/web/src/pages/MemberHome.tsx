@@ -1,4 +1,4 @@
-import type { FileEntry } from '@homelab/contracts';
+import type { FileEntry } from '@homeport/contracts';
 import {
   Breakdown,
   Card,
@@ -15,7 +15,7 @@ import {
   Stat,
   timeAgo,
   type IconName,
-} from '@homelab/ui';
+} from '@homeport/ui';
 
 import { api } from '../api';
 import { useAuth } from '../auth';

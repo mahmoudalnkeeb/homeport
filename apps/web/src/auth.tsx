@@ -1,4 +1,4 @@
-import { hasPermission, pathAccess, type Me, type Permission } from '@homelab/contracts';
+import { hasPermission, pathAccess, type Me, type Permission } from '@homeport/contracts';
 import { createContext, type ComponentChildren } from 'preact';
 import { useCallback, useContext, useEffect, useMemo, useState } from 'preact/hooks';
 

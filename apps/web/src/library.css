@@ -124,16 +124,21 @@ tr:focus-within .row-actions {
   justify-content: center;
   background: var(--surface-2);
 }
-.preview-body :is(img, video) {
+.preview-body > img {
   max-height: 100%;
   border-radius: var(--radius-sm);
   object-fit: contain;
 }
-.preview-body video {
-  width: 100%;
-  background: black;
+.preview-body .media-video {
+  max-height: 100%;
 }
-.preview-body audio {
+.preview-media {
+  display: grid;
+  gap: var(--space-3);
+  justify-items: center;
+  width: 100%;
+}
+.preview-media .notice {
   width: min(560px, 100%);
 }
 .preview-body iframe {

@@ -1,4 +1,4 @@
-import { ROLES } from '@homelab/contracts';
+import { ROLES } from '@homeport/contracts';
 import { boolean, pgEnum, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 
 export const userRole = pgEnum('user_role', ROLES);

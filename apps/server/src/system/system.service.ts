@@ -5,8 +5,8 @@ import {
   type OnModuleDestroy,
   type OnModuleInit,
 } from '@nestjs/common';
-import { hostMetricsSchema, type HostMetrics, type MetricsSource, type SystemSnapshot } from '@homelab/contracts';
-import { HostSampler, runtimeKind } from '@homelab/host-metrics';
+import { hostMetricsSchema, type HostMetrics, type MetricsSource, type SystemSnapshot } from '@homeport/contracts';
+import { HostSampler, runtimeKind } from '@homeport/host-metrics';
 
 import { ENV, type Environment } from '../config/env.js';
 
@@ -21,7 +21,7 @@ export class SystemService implements OnModuleInit, OnModuleDestroy {
   private agentError: string | undefined;
 
   constructor(@Inject(ENV) private readonly env: Environment) {
-    this.local = new HostSampler({ diskPath: env.DATA_DIR });
+    this.local = new HostSampler({ diskPath: env.DISK_PATH });
   }
 
   onModuleInit(): void {

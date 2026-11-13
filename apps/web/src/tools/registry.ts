@@ -8,5 +8,6 @@ export interface ClientTool {
 
 export const CLIENT_TOOLS: Record<string, ClientTool> = {
   files: { page: lazy(() => import('./files/FilesPage')) },
+  attachments: { page: lazy(() => import('./attachments/AttachmentsPage')) },
   markdown: { page: lazy(() => import('./markdown/MarkdownPage')), flush: true },
 };

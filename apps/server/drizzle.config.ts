@@ -10,7 +10,7 @@ export default defineConfig({
   schema: './src/**/*.schema.ts',
   out: './drizzle',
   casing: 'snake_case',
-  dbCredentials: { url: process.env.DATABASE_URL ?? 'postgres://homelab:homelab@localhost:5432/homelab' },
+  dbCredentials: { url: process.env.DATABASE_URL ?? 'postgres://homeport:homeport@localhost:5432/homeport' },
   strict: true,
   verbose: true,
 });

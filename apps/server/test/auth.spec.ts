@@ -2,18 +2,21 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { pathAccess } from '@homelab/contracts';
+import { pathAccess } from '@homeport/contracts';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { ActivityService } from '../src/activity/activity.service.js';
 import { AuthService } from '../src/auth/auth.service.js';
 import type { Database } from '../src/database/database.js';
+import { MediaService } from '../src/media/media.service.js';
 import { sessions } from '../src/sessions/sessions.schema.js';
 import { SessionsService } from '../src/sessions/sessions.service.js';
+import { AttachmentsService } from '../src/tools/attachments/attachments.service.js';
 import { FilesService } from '../src/tools/files/files.service.js';
 import { hashPassword, verifyPassword } from '../src/users/password.js';
 import type { Actor } from '../src/users/users.schema.js';
 import { UsersService } from '../src/users/users.service.js';
+import { MemoryStorage } from './memory-storage.js';
 import { createTestDatabase, testEnv } from './support.js';
 
 describe('passwords', () => {
@@ -52,9 +55,11 @@ describe('AuthService + UsersService', () => {
   let closeDb: () => Promise<void>;
 
   const make = async (env: Record<string, string> = {}) => {
-    const config = testEnv({ DATA_DIR: join(dir, 'data'), STATE_DIR: join(dir, 'state'), ...env });
+    const config = testEnv({ STATE_DIR: join(dir, 'state'), ...env });
     const activity = new ActivityService(db);
-    const files = new FilesService(config, activity);
+    const storage = new MemoryStorage();
+    const media = new MediaService(db, storage);
+    const files = new FilesService(storage, media, activity, new AttachmentsService(db, storage, media, activity));
     await files.onModuleInit();
     const sessionStore = new SessionsService(db, config);
     const users = new UsersService(db, config, sessionStore, files, activity);

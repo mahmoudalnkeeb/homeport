@@ -1,6 +1,6 @@
 import { ForbiddenException, HttpStatus, Injectable, UnauthorizedException, type CanActivate, type ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { hasPermission, type Permission } from '@homelab/contracts';
+import { hasPermission, type Permission } from '@homeport/contracts';
 import type { NodeRequest } from '@nestjs/platform-node';
 
 import { AppError } from '../common/http/app-error.js';
@@ -9,7 +9,7 @@ import { AuthService } from './auth.service.js';
 import { SessionCookie } from './session-cookie.js';
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
-export const REQUEST_HEADER = 'x-homelab-request';
+export const REQUEST_HEADER = 'x-homeport-request';
 
 @Injectable()
 export class AuthGuard implements CanActivate {
@@ -24,7 +24,7 @@ export class AuthGuard implements CanActivate {
     const targets = [context.getHandler(), context.getClass()];
 
     if (!SAFE_METHODS.has(request.method ?? '') &&request.headers[REQUEST_HEADER] !== '1') {
-      throw new AppError(HttpStatus.FORBIDDEN, 'CSRF_HEADER_MISSING', 'Missing X-Homelab-Request header');
+      throw new AppError(HttpStatus.FORBIDDEN, 'CSRF_HEADER_MISSING', 'Missing X-Homeport-Request header');
     }
     if (this.reflector.getAllAndOverride<boolean>(IS_PUBLIC, targets)) return true;
 

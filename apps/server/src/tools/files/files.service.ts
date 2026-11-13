@@ -1,52 +1,38 @@
-import { copyFile, mkdir, readdir, realpath, rename, rm, stat, unlink, writeFile } from 'node:fs/promises';
-import { basename, extname, join, relative, resolve, sep } from 'node:path';
-
 import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
-  Inject,
   Injectable,
   NotFoundException,
   type OnModuleInit,
 } from '@nestjs/common';
 import {
   homeOf,
+  hasPermission,
+  isStreamable,
+  kindOf,
   pathAccess,
   USERS_FOLDER,
-  hasPermission,
   type FileEntry,
   type FileKind,
+  type FileUploadStartBody,
   type PathAccess,
   type RecentScope,
   type RenameResult,
   type ToolSummary,
-} from '@homelab/contracts';
+  type UploadFinishBody,
+  type UploadTicket,
+} from '@homeport/contracts';
 
 import { ActivityService } from '../../activity/activity.service.js';
 import { Paginated } from '../../common/http/pagination.js';
-import { ENV, type Environment } from '../../config/env.js';
+import { MediaService } from '../../media/media.service.js';
+import { assertValidName, contentTypeOf, FILES_PREFIX } from '../../storage/storage.keys.js';
+import { StorageService } from '../../storage/storage.service.js';
 import type { Actor } from '../../users/users.schema.js';
+import { AttachmentsService } from '../attachments/attachments.service.js';
 import { formatBytes } from '../format.js';
 import type { FolderQueryDto, RecentQueryDto } from './files.dto.js';
-
-const EXTENSIONS: Record<Exclude<FileKind, 'folder' | 'other'>, string[]> = {
-  image: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'avif', 'svg', 'bmp', 'ico'],
-  video: ['mp4', 'webm', 'mkv', 'mov', 'm4v', 'ogv'],
-  audio: ['mp3', 'wav', 'ogg', 'oga', 'flac', 'm4a', 'aac', 'opus'],
-  pdf: ['pdf'],
-  markdown: ['md', 'markdown', 'mdx'],
-  text: ['txt', 'log', 'json', 'csv', 'yml', 'yaml', 'xml', 'ini', 'conf', 'env', 'ts', 'js', 'css', 'html', 'sh', 'py'],
-  archive: ['zip', 'tar', 'gz', 'tgz', '7z', 'rar'],
-};
-
-const KIND_BY_EXTENSION = new Map(
-  Object.entries(EXTENSIONS).flatMap(([kind, exts]) => exts.map((ext) => [ext, kind as FileKind]))
-);
-
-export function kindOf(name: string): FileKind {
-  return KIND_BY_EXTENSION.get(extname(name).slice(1).toLowerCase()) ?? 'other';
-}
 
 export interface StorageStats {
   totalBytes: number;
@@ -56,27 +42,30 @@ export interface StorageStats {
   recent: FileEntry[];
 }
 
-const INVALID_NAME = /[<>:"/\\|?*]/;
-const hasControlChars = (name: string) => [...name].some((char) => char.charCodeAt(0) < 32);
+interface Scan {
+  at: number;
+  files: FileEntry[];
+  folders: Map<string, string>;
+}
+
 const STATS_TTL_MS = 30_000;
+const RESERVATION_MS = 12 * 3_600_000;
 
 const isHidden = (name: string) => name.startsWith('.');
-const toPosix = (path: string) => path.split(sep).join('/');
 const isWithin = (path: string, folder: string) => folder === '' || path === folder || path.startsWith(`${folder}/`);
+const parentOf = (path: string) => path.split('/').slice(0, -1).join('/');
+const nameOf = (path: string) => path.split('/').pop() ?? '';
+const joinPath = (folder: string, name: string) => (folder ? `${folder}/${name}` : name);
+const keyOf = (path: string) => `${FILES_PREFIX}${path}`;
+const folderKey = (path: string) => (path ? `${FILES_PREFIX}${path}/` : FILES_PREFIX);
 
-function errorCode(error: unknown): string | undefined {
-  return error instanceof Error && 'code' in error ? String(error.code) : undefined;
+export function normalizePath(path: string): string {
+  const parts = path.split(/[/\\]+/).filter(Boolean);
+  if (parts.some((part) => part === '.' || part === '..')) throw new BadRequestException('Invalid path');
+  return parts.join('/');
 }
 
-export function assertValidName(name: string): void {
-  if (!name || name === '.' || name === '..' || name.length > 255 || INVALID_NAME.test(name) || hasControlChars(name)) {
-    throw new BadRequestException(`Invalid name: ${name}`);
-  }
-}
-
-const folderOf = (path: string) => path.split('/').slice(0, -1).join('/');
-const fileHref = (file: FileEntry) =>
-  `/tools/files?path=${encodeURIComponent(folderOf(file.path))}&open=${encodeURIComponent(file.path)}`;
+const fileHref = (file: FileEntry) => `/tools/files?path=${encodeURIComponent(parentOf(file.path))}&open=${encodeURIComponent(file.path)}`;
 
 function toSummary(stats: StorageStats, scopeLabel: string): ToolSummary {
   return {
@@ -88,12 +77,6 @@ function toSummary(stats: StorageStats, scopeLabel: string): ToolSummary {
     breakdown: stats.byKind.map(({ kind, bytes, count }) => ({ label: kind, value: bytes, display: `${formatBytes(bytes)} · ${count}` })),
     recent: stats.recent.map((file) => ({ label: file.name, href: fileHref(file), size: file.size, modified: file.modified })),
   };
-}
-
-interface Scan {
-  at: number;
-  files: FileEntry[];
-  folders: string[];
 }
 
 function summarize(files: FileEntry[], folders: number): StorageStats {
@@ -118,64 +101,32 @@ function summarize(files: FileEntry[], folders: number): StorageStats {
 @Injectable()
 export class FilesService implements OnModuleInit {
   private scanCache: Scan | undefined;
+  private readonly reserved = new Map<string, number>();
 
   constructor(
-    @Inject(ENV) private readonly env: Environment,
-    private readonly activity: ActivityService
+    private readonly storage: StorageService,
+    private readonly media: MediaService,
+    private readonly activity: ActivityService,
+    private readonly attachments: AttachmentsService
   ) {}
 
-  get root(): string {
-    return this.env.DATA_DIR;
-  }
-
   async onModuleInit(): Promise<void> {
-    await mkdir(join(this.root, USERS_FOLDER), { recursive: true });
+    await this.storage.put(folderKey(USERS_FOLDER), '', 'application/x-directory');
   }
 
-  async resolve(path: string): Promise<string> {
-    const absolute = resolve(this.root, `.${sep}${path}`);
-    this.assertInsideRoot(absolute);
-    try {
-      this.assertInsideRoot(await realpath(absolute), await realpath(this.root));
-    } catch (error) {
-      if (errorCode(error) !== 'ENOENT') throw error;
-    }
-    return absolute;
-  }
-
-  private assertInsideRoot(absolute: string, root = this.root): void {
-    if (absolute !== root && !absolute.startsWith(root + sep)) {
-      throw new ForbiddenException('Path is outside the data directory');
-    }
-  }
-
-  private toRelative(absolute: string): string {
-    return toPosix(relative(this.root, absolute));
-  }
-
-  private async authorize(actor: Actor, path: string, needed: Exclude<PathAccess, 'none'>) {
-    const absolute = await this.resolve(path);
-    const rel = this.toRelative(absolute);
+  private authorize(actor: Actor, path: string, needed: Exclude<PathAccess, 'none'>): string {
+    const rel = normalizePath(path);
     const access = pathAccess(actor, rel);
     if (access === 'none') throw new NotFoundException('Not found');
     if (needed === 'write' && access !== 'write') throw new ForbiddenException('This location is read-only for you');
-    return { absolute, rel, access };
+    return rel;
   }
 
   private assertNotStructural(rel: string): void {
     const parts = rel.split('/').filter(Boolean);
-    if (parts.length === 0) throw new BadRequestException('Cannot change the data folder itself');
+    if (parts.length === 0) throw new BadRequestException('Cannot change the library root');
     if (parts[0] === USERS_FOLDER && parts.length <= 2) {
       throw new BadRequestException('Personal spaces are managed from the Users page');
-    }
-  }
-
-  private async statOrThrow(absolute: string) {
-    try {
-      return await stat(absolute);
-    } catch (error) {
-      if (errorCode(error) === 'ENOENT') throw new NotFoundException('Not found');
-      throw error;
     }
   }
 
@@ -184,155 +135,162 @@ export class FilesService implements OnModuleInit {
     await this.activity.record('files', action, detail, actor.username);
   }
 
+  private async exists(path: string): Promise<boolean> {
+    return (await this.storage.head(keyOf(path))) !== null || (await this.storage.any(folderKey(path)));
+  }
+
   async ensureHome(username: string): Promise<void> {
-    await mkdir(join(this.root, USERS_FOLDER, username), { recursive: true });
+    const home = homeOf(username);
+    if ((await this.scan()).folders.has(home)) return;
+    await this.storage.put(folderKey(home), '', 'application/x-directory');
+    this.scanCache = undefined;
   }
 
   async removeHome(username: string): Promise<void> {
-    await rm(join(this.root, USERS_FOLDER, username), { recursive: true, force: true });
+    const prefix = folderKey(homeOf(username));
+    await this.storage.removePrefix(prefix);
+    await this.media.forgetPrefix(prefix);
+    await this.attachments.forgetPrefix(prefix);
     this.scanCache = undefined;
   }
 
   async list(actor: Actor, { path = '', ...page }: FolderQueryDto): Promise<Paginated<FileEntry>> {
-    if (path.replace(/^\/+|\/+$/g, '') === homeOf(actor.username)) await this.ensureHome(actor.username);
-    const { absolute } = await this.authorize(actor, path, 'read');
-    if (!(await this.statOrThrow(absolute)).isDirectory()) {
-      throw new BadRequestException('Not a folder');
+    const rel = this.authorize(actor, path, 'read');
+    if (rel === homeOf(actor.username)) await this.ensureHome(actor.username);
+    const scan = await this.scan();
+    if (rel && !scan.folders.has(rel)) {
+      if (scan.files.some((file) => file.path === rel)) throw new BadRequestException('Not a folder');
+      throw new NotFoundException('Not found');
     }
-    const dirents = await readdir(absolute, { withFileTypes: true });
-    const entries = await Promise.all(
-      dirents
-        .filter((dirent) => !isHidden(dirent.name))
-        .map(async (dirent): Promise<FileEntry | null> => {
-          const child = join(absolute, dirent.name);
-          const childRel = this.toRelative(child);
-          if (pathAccess(actor, childRel) === 'none') return null;
-          try {
-            const info = await stat(child);
-            return {
-              name: dirent.name,
-              path: childRel,
-              kind: info.isDirectory() ? 'folder' : kindOf(dirent.name),
-              size: info.isDirectory() ? 0 : info.size,
-              modified: info.mtime.toISOString(),
-            };
-          } catch {
-            return null;
-          }
-        })
-    );
-    const sorted = entries
-      .filter((entry) => entry !== null)
+    const folders: FileEntry[] = [...scan.folders]
+      .filter(([folder]) => folder && parentOf(folder) === rel)
+      .map(([folder, modified]) => ({ name: nameOf(folder), path: folder, kind: 'folder', size: 0, modified }));
+    const files = scan.files.filter((file) => parentOf(file.path) === rel);
+    const visible = [...folders, ...files]
+      .filter((entry) => pathAccess(actor, entry.path) !== 'none')
       .sort(
-        (a, b) =>
-          Number(b.kind === 'folder') - Number(a.kind === 'folder') || a.name.localeCompare(b.name, undefined, { numeric: true })
+        (a, b) => Number(b.kind === 'folder') - Number(a.kind === 'folder') || a.name.localeCompare(b.name, undefined, { numeric: true })
       );
-    return Paginated.slice(sorted, page);
+    const streams = await this.media.streamsFor(visible.filter((entry) => isStreamable(entry.kind)).map((entry) => keyOf(entry.path)));
+    return Paginated.slice(
+      visible.map((entry) => (isStreamable(entry.kind) ? { ...entry, stream: streams.get(keyOf(entry.path)) ?? null } : entry)),
+      page
+    );
   }
 
-  async file(actor: Actor, path: string): Promise<{ absolute: string; name: string }> {
-    const { absolute } = await this.authorize(actor, path, 'read');
-    if (!(await this.statOrThrow(absolute)).isFile()) throw new BadRequestException('Not a file');
-    return { absolute, name: basename(absolute) };
+  async file(actor: Actor, path: string): Promise<{ key: string; name: string }> {
+    const rel = this.authorize(actor, path, 'read');
+    if (!rel || !(await this.storage.head(keyOf(rel)))) throw new NotFoundException('Not found');
+    return { key: keyOf(rel), name: nameOf(rel) };
   }
 
-  private async uniqueTarget(folder: string, name: string): Promise<string> {
-    const ext = extname(name);
-    const stem = name.slice(0, name.length - ext.length);
+  private async uniquePath(folder: string, name: string): Promise<string> {
+    const now = Date.now();
+    for (const [path, expires] of this.reserved) if (expires < now) this.reserved.delete(path);
+    const dot = name.lastIndexOf('.');
+    const [stem, ext] = dot > 0 ? [name.slice(0, dot), name.slice(dot)] : [name, ''];
     for (let i = 0; ; i++) {
-      const candidate = join(folder, i === 0 ? name : `${stem} (${i})${ext}`);
-      try {
-        await stat(candidate);
-      } catch {
-        return candidate;
-      }
+      const candidate = joinPath(folder, i === 0 ? name : `${stem} (${i})${ext}`);
+      if (this.reserved.has(candidate) || (await this.exists(candidate))) continue;
+      this.reserved.set(candidate, now + RESERVATION_MS);
+      return candidate;
     }
   }
 
-  async upload(actor: Actor, path: string, files: { originalname: string; path: string }[]): Promise<Paginated<FileEntry>> {
+  async startUpload(actor: Actor, host: string, { folder = '', name, size }: FileUploadStartBody): Promise<UploadTicket> {
+    assertValidName(name);
+    const dir = this.authorize(actor, folder, 'write');
+    const path = await this.uniquePath(dir, name);
+    const contentType = contentTypeOf(name);
     try {
-      const { absolute: folder } = await this.authorize(actor, path, 'write');
-      await mkdir(folder, { recursive: true });
-      const saved: FileEntry[] = [];
-      for (const file of files) {
-        const name = basename(file.originalname);
-        assertValidName(name);
-        const target = await this.uniqueTarget(folder, name);
-        await this.move(file.path, target);
-        const info = await stat(target);
-        saved.push({
-          name: basename(target),
-          path: this.toRelative(target),
-          kind: kindOf(target),
-          size: info.size,
-          modified: info.mtime.toISOString(),
-        });
-      }
-      await this.changed(actor, 'upload', saved.map((entry) => entry.path).join(', '));
-      return Paginated.all(saved);
-    } finally {
-      await Promise.all(files.map((file) => rm(file.path, { force: true })));
-    }
-  }
-
-  private async move(from: string, to: string): Promise<void> {
-    try {
-      await rename(from, to);
+      return { target: path, contentType, ...(await this.storage.startUpload(host, keyOf(path), size, contentType)) };
     } catch (error) {
-      if (errorCode(error) !== 'EXDEV') throw error;
-      await copyFile(from, to);
-      await unlink(from);
+      this.reserved.delete(path);
+      throw error;
     }
+  }
+
+  async finishUpload(actor: Actor, { target, uploadId }: UploadFinishBody): Promise<FileEntry> {
+    const path = this.authorize(actor, target, 'write');
+    assertValidName(nameOf(path));
+    const object = await this.storage.finishUpload(keyOf(path), uploadId);
+    this.reserved.delete(path);
+    await this.attachments.track(actor, keyOf(path), object.size);
+    const kind = kindOf(path);
+    const stream = isStreamable(kind) ? await this.media.enqueue(keyOf(path), kind) : null;
+    await this.changed(actor, 'upload', path);
+    return { name: nameOf(path), path, kind, size: object.size, modified: object.modified.toISOString(), stream };
+  }
+
+  async abortUpload(actor: Actor, { target, uploadId }: UploadFinishBody): Promise<void> {
+    const path = this.authorize(actor, target, 'write');
+    await this.storage.abortUpload(keyOf(path), uploadId);
+    this.reserved.delete(path);
   }
 
   async writeText(actor: Actor, path: string, content: string): Promise<FileEntry> {
-    const { absolute, rel } = await this.authorize(actor, path, 'write');
-    assertValidName(basename(absolute));
-    if (!['markdown', 'text'].includes(kindOf(absolute))) {
-      throw new BadRequestException('Only text and markdown files can be written');
-    }
-    await mkdir(join(absolute, '..'), { recursive: true });
-    await writeFile(absolute, content, 'utf8');
-    const info = await stat(absolute);
+    const rel = this.authorize(actor, path, 'write');
+    const name = nameOf(rel);
+    assertValidName(name);
+    const kind = kindOf(name);
+    if (kind !== 'markdown' && kind !== 'text') throw new BadRequestException('Only text and markdown files can be written');
+    await this.storage.put(keyOf(rel), content, contentTypeOf(name));
+    await this.attachments.resize(keyOf(rel), Buffer.byteLength(content));
     await this.changed(actor, 'save', rel);
-    return { name: basename(absolute), path: rel, kind: kindOf(absolute), size: info.size, modified: info.mtime.toISOString() };
+    return { name, path: rel, kind, size: Buffer.byteLength(content), modified: new Date().toISOString() };
   }
 
   async createFolder(actor: Actor, path: string): Promise<void> {
-    const { absolute, rel } = await this.authorize(actor, path, 'write');
-    assertValidName(basename(absolute));
-    await mkdir(absolute, { recursive: true });
+    const rel = this.authorize(actor, path, 'write');
+    assertValidName(nameOf(rel));
+    await this.storage.put(folderKey(rel), '', 'application/x-directory');
     await this.changed(actor, 'mkdir', rel);
   }
 
   async rename(actor: Actor, path: string, name: string): Promise<RenameResult> {
     assertValidName(name);
-    const { absolute, rel } = await this.authorize(actor, path, 'write');
+    const rel = this.authorize(actor, path, 'write');
     this.assertNotStructural(rel);
-    await this.statOrThrow(absolute);
-    const target = join(absolute, '..', name);
-    try {
-      await stat(target);
-      throw new ConflictException(`${name} already exists`);
-    } catch (error) {
-      if (errorCode(error) !== 'ENOENT') throw error;
+    const target = joinPath(parentOf(rel), name);
+    const file = await this.storage.head(keyOf(rel));
+    const objects = file ? [file] : await this.storage.list(folderKey(rel));
+    if (!objects.length) throw new NotFoundException('Not found');
+    if (await this.exists(target)) throw new ConflictException(`${name} already exists`);
+
+    if (file) {
+      await this.storage.move(file, keyOf(target));
+      await this.media.move(keyOf(rel), keyOf(target));
+      await this.attachments.move(keyOf(rel), keyOf(target));
+    } else {
+      const [from, to] = [folderKey(rel), folderKey(target)];
+      for (const object of objects) await this.storage.move(object, `${to}${object.key.slice(from.length)}`);
+      await this.media.movePrefix(from, to);
+      await this.attachments.movePrefix(from, to);
     }
-    await rename(absolute, target);
     await this.changed(actor, 'rename', `${rel} → ${name}`);
-    return { path: this.toRelative(target) };
+    return { path: target };
   }
 
   async remove(actor: Actor, path: string): Promise<void> {
-    const { absolute, rel } = await this.authorize(actor, path, 'write');
+    const rel = this.authorize(actor, path, 'write');
     this.assertNotStructural(rel);
-    await this.statOrThrow(absolute);
-    await rm(absolute, { recursive: true });
+    if (await this.storage.head(keyOf(rel))) {
+      await this.storage.remove([keyOf(rel)]);
+      await this.media.forget([keyOf(rel)]);
+      await this.attachments.forget([keyOf(rel)]);
+    } else {
+      const prefix = folderKey(rel);
+      if (!(await this.storage.any(prefix))) throw new NotFoundException('Not found');
+      await this.storage.removePrefix(prefix);
+      await this.media.forgetPrefix(prefix);
+      await this.attachments.forgetPrefix(prefix);
+    }
     await this.changed(actor, 'delete', rel);
   }
 
   async stats(): Promise<StorageStats> {
     const scan = await this.scan();
-    return summarize(scan.files, scan.folders.length);
+    return summarize(scan.files, scan.folders.size);
   }
 
   async homeStats(username: string): Promise<StorageStats> {
@@ -340,7 +298,7 @@ export class FilesService implements OnModuleInit {
     const home = homeOf(username);
     return summarize(
       scan.files.filter((file) => isWithin(file.path, home)),
-      scan.folders.filter((folder) => isWithin(folder, home) && folder !== home).length
+      [...scan.folders.keys()].filter((folder) => isWithin(folder, home) && folder !== home).length
     );
   }
 
@@ -376,20 +334,28 @@ export class FilesService implements OnModuleInit {
   private async scan(): Promise<Scan> {
     if (this.scanCache && Date.now() - this.scanCache.at < STATS_TTL_MS) return this.scanCache;
     const files: FileEntry[] = [];
-    const folders: string[] = [];
+    const folders = new Map<string, string>();
+    const touch = (folder: string, modified: string) => {
+      const parts = folder.split('/').filter(Boolean);
+      for (let i = 1; i <= parts.length; i++) {
+        const ancestor = parts.slice(0, i).join('/');
+        const current = folders.get(ancestor);
+        if (!current || current < modified) folders.set(ancestor, modified);
+      }
+    };
 
-    for (const dirent of await readdir(this.root, { withFileTypes: true, recursive: true })) {
-      const absolute = join(dirent.parentPath, dirent.name);
-      const rel = this.toRelative(absolute);
-      if (rel.split('/').some(isHidden)) continue;
-      if (dirent.isDirectory()) {
-        folders.push(rel);
+    for (const object of await this.storage.list(FILES_PREFIX)) {
+      const rel = object.key.slice(FILES_PREFIX.length);
+      const isFolder = rel.endsWith('/');
+      const path = isFolder ? rel.slice(0, -1) : rel;
+      if (!path || path.split('/').some(isHidden)) continue;
+      const modified = object.modified.toISOString();
+      if (isFolder) {
+        touch(path, modified);
         continue;
       }
-      if (!dirent.isFile()) continue;
-      const info = await stat(absolute).catch(() => null);
-      if (!info) continue;
-      files.push({ name: dirent.name, path: rel, kind: kindOf(dirent.name), size: info.size, modified: info.mtime.toISOString() });
+      touch(parentOf(path), modified);
+      files.push({ name: nameOf(path), path, kind: kindOf(path), size: object.size, modified });
     }
 
     files.sort((a, b) => b.modified.localeCompare(a.modified));

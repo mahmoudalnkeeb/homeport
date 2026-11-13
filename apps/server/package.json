@@ -1,5 +1,5 @@
 {
-  "name": "@homelab/server",
+  "name": "@homeport/server",
   "version": "2.0.0",
   "private": true,
   "type": "module",
@@ -19,8 +19,10 @@
     "db:check": "drizzle-kit check"
   },
   "dependencies": {
-    "@homelab/contracts": "workspace:*",
-    "@homelab/host-metrics": "workspace:*",
+    "@aws-sdk/client-s3": "^3.1167.0",
+    "@aws-sdk/s3-request-presigner": "^3.1167.0",
+    "@homeport/contracts": "workspace:*",
+    "@homeport/host-metrics": "workspace:*",
     "@nestjs/common": "^12.4.2",
     "@nestjs/core": "^12.4.2",
     "@nestjs/platform-node": "^12.4.2",

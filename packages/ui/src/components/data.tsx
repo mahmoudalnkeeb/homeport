@@ -1,7 +1,7 @@
 import type { ComponentChildren } from 'preact';
 
 import { Icon, type IconName } from '../icons.js';
-import { cx } from './controls.js';
+import { cx, IconButton } from './controls.js';
 
 export interface CardProps {
   title?: string;
@@ -254,7 +254,17 @@ export function Row({ icon, title, meta, href, end, mono }: RowProps) {
       {end}
     </>
   );
-  return <li>{href ? <a class="row" href={href}>{body}</a> : <div class="row">{body}</div>}</li>;
+  return (
+    <li>
+      {href ? (
+        <a class="row" href={href}>
+          {body}
+        </a>
+      ) : (
+        <div class="row">{body}</div>
+      )}
+    </li>
+  );
 }
 
 export interface EmptyStateProps {
@@ -361,5 +371,50 @@ export function Notice({ tone = 'info', title, children }: NoticeProps) {
         {children && <div class="notice-body">{children}</div>}
       </div>
     </div>
+  );
+}
+
+export type PageItem = number | 'gap';
+
+export function pageItems(page: number, totalPages: number): PageItem[] {
+  if (totalPages <= 7) return Array.from({ length: totalPages }, (_, i) => i + 1);
+  const run = (from: number, length: number) => Array.from({ length }, (_, i) => from + i);
+  if (page <= 4) return [...run(1, 5), 'gap', totalPages];
+  if (page >= totalPages - 3) return [1, 'gap', ...run(totalPages - 4, 5)];
+  return [1, 'gap', ...run(page - 1, 3), 'gap', totalPages];
+}
+
+export interface PaginationProps {
+  page: number;
+  totalPages: number;
+  onPage: (page: number) => void;
+  label?: string;
+}
+
+export function Pagination({ page, totalPages, onPage, label = 'Pages' }: PaginationProps) {
+  if (totalPages <= 1) return null;
+  return (
+    <nav class="pagination" aria-label={label}>
+      <IconButton size="sm" icon="chevron-left" label="Previous page" disabled={page <= 1} onClick={() => onPage(page - 1)} />
+      {pageItems(page, totalPages).map((item, i) =>
+        item === 'gap' ? (
+          <span key={`gap-${i}`} class="pagination-gap" aria-hidden="true">
+            …
+          </span>
+        ) : (
+          <button
+            key={item}
+            type="button"
+            class="btn btn-sm btn-ghost pagination-page"
+            aria-current={item === page ? 'page' : undefined}
+            aria-label={`Page ${item}`}
+            onClick={() => onPage(item)}
+          >
+            {item}
+          </button>
+        )
+      )}
+      <IconButton size="sm" icon="chevron-right" label="Next page" disabled={page >= totalPages} onClick={() => onPage(page + 1)} />
+    </nav>
   );
 }

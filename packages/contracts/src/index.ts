@@ -59,13 +59,15 @@ export const PERMISSIONS = [
   'users:manage',
   'files:read',
   'files:write',
+  'attachments:read',
+  'attachments:write',
   'design:read',
 ] as const;
 export type Permission = (typeof PERMISSIONS)[number];
 
 export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
   admin: PERMISSIONS,
-  member: ['files:read', 'files:write'],
+  member: ['files:read', 'files:write', 'attachments:read', 'attachments:write'],
 };
 
 export const hasPermission = (role: Role, permission: Permission): boolean => ROLE_PERMISSIONS[role].includes(permission);
@@ -176,12 +178,69 @@ export const FILE_KINDS = [
 ] as const;
 export type FileKind = (typeof FILE_KINDS)[number];
 
+const KIND_EXTENSIONS: Record<Exclude<FileKind, 'folder' | 'other'>, readonly string[]> = {
+  image: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'avif', 'svg', 'bmp', 'ico'],
+  video: ['mp4', 'webm', 'mkv', 'mov', 'm4v', 'ogv', 'avi'],
+  audio: ['mp3', 'wav', 'ogg', 'oga', 'flac', 'm4a', 'aac', 'opus'],
+  pdf: ['pdf'],
+  markdown: ['md', 'markdown', 'mdx'],
+  text: ['txt', 'log', 'json', 'csv', 'yml', 'yaml', 'xml', 'ini', 'conf', 'env', 'ts', 'js', 'css', 'html', 'sh', 'py'],
+  archive: ['zip', 'tar', 'gz', 'tgz', '7z', 'rar'],
+};
+
+const KIND_BY_EXTENSION = new Map<string, FileKind>(
+  Object.entries(KIND_EXTENSIONS).flatMap(([kind, extensions]) => extensions.map((ext): [string, FileKind] => [ext, kind as FileKind]))
+);
+
+export function extensionOf(name: string): string {
+  const dot = name.lastIndexOf('.');
+  return dot > 0 ? name.slice(dot + 1).toLowerCase() : '';
+}
+
+export const kindOf = (name: string): FileKind => KIND_BY_EXTENSION.get(extensionOf(name)) ?? 'other';
+
+export const isStreamable = (kind: FileKind): kind is 'video' | 'audio' => kind === 'video' || kind === 'audio';
+
+export const STREAM_STATUSES = ['pending', 'processing', 'ready', 'failed'] as const;
+export type StreamStatus = (typeof STREAM_STATUSES)[number];
+
+export interface StreamInfo {
+  id: string;
+  status: StreamStatus;
+  playlist: string | null;
+  poster: string | null;
+  duration: number | null;
+}
+
 export interface FileEntry {
   name: string;
   path: string;
   kind: FileKind;
   size: number;
   modified: string;
+  stream?: StreamInfo | null;
+}
+
+export interface UploadStartBody {
+  name: string;
+  size: number;
+}
+
+export interface FileUploadStartBody extends UploadStartBody {
+  folder?: string;
+}
+
+export interface UploadTicket {
+  target: string;
+  uploadId: string | null;
+  contentType: string;
+  partSize: number;
+  partUrls: string[];
+}
+
+export interface UploadFinishBody {
+  target: string;
+  uploadId?: string;
 }
 
 export const RECENT_SCOPES = ['all', 'library', 'home'] as const;
@@ -206,7 +265,57 @@ export interface RenameResult {
   path: string;
 }
 
-const systemSample = z.object({ t: z.number(), cpu: z.number(), mem: z.number() });
+export const ATTACHMENT_CATEGORIES = ['image', 'video', 'audio', 'document', 'archive', 'other'] as const;
+export type AttachmentCategory = (typeof ATTACHMENT_CATEGORIES)[number];
+
+const CATEGORY_BY_KIND: Record<FileKind, AttachmentCategory> = {
+  folder: 'other',
+  image: 'image',
+  video: 'video',
+  audio: 'audio',
+  pdf: 'document',
+  markdown: 'document',
+  text: 'document',
+  archive: 'archive',
+  other: 'other',
+};
+
+export const categoryOf = (name: string): AttachmentCategory => CATEGORY_BY_KIND[kindOf(name)];
+
+export interface Attachment {
+  id: string;
+  name: string;
+  filename: string;
+  category: AttachmentCategory;
+  kind: FileKind;
+  contentType: string;
+  size: number;
+  owner: string | null;
+  createdAt: string;
+  url: string;
+  path: string | null;
+  stream: StreamInfo | null;
+}
+
+export interface AttachmentQuery extends PaginationQuery {
+  category?: AttachmentCategory;
+  q?: string;
+  mine?: boolean;
+}
+
+export interface UpdateAttachmentBody {
+  name: string;
+}
+
+export interface AttachmentCategoryStats {
+  category: AttachmentCategory;
+  count: number;
+  bytes: number;
+}
+
+export const attachmentUrl = (id: string, download = false): string => `/api/attachments/${id}/raw${download ? '?download=true' : ''}`;
+
+const systemSample =z.object({ t: z.number(), cpu: z.number(), mem: z.number() });
 export type SystemSample = z.infer<typeof systemSample>;
 
 export const hostMetricsSchema = z.object({

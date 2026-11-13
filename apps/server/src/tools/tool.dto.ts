@@ -1,4 +1,4 @@
-import type { Permission, QuickAction, ToolInfo, ToolSummary } from '@homelab/contracts';
+import type { Permission, QuickAction, ToolInfo, ToolSummary } from '@homeport/contracts';
 import { Expose } from 'class-transformer';
 
 import { ExposeNested } from '../common/http/expose.js';

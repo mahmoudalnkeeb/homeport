@@ -3,7 +3,7 @@ import type { NodeRequest, NodeResponse } from '@nestjs/platform-node';
 
 import { ENV, type Environment } from '../config/env.js';
 
-export const SESSION_COOKIE = 'homelab_session';
+export const SESSION_COOKIE = 'homeport_session';
 
 @Injectable()
 export class SessionCookie {

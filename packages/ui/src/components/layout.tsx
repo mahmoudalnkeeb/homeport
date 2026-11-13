@@ -25,7 +25,6 @@ export interface ShellUser {
 
 export interface AppShellProps {
   brand: string;
-  version?: string;
   nav: NavGroup[];
   tabs: NavItem[];
   activeId: string | null;
@@ -62,24 +61,35 @@ export function Avatar({ name, size = 'md' }: { name: string; size?: 'md' | 'lg'
   );
 }
 
-function Brand({ brand, version }: { brand: string; version: string | undefined }) {
+export function BrandMark() {
+  return (
+    <span class="brand-mark" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3.5 12 12 4.5l8.5 7.5" />
+        <path d="M6.5 10v3.6M17.5 10v3.6" />
+        <circle cx="12" cy="10.4" r="1.5" fill="currentColor" stroke="none" />
+        <path d="M3 16.6c1.5 0 1.5-1.1 3-1.1s1.5 1.1 3 1.1 1.5-1.1 3-1.1 1.5 1.1 3 1.1 1.5-1.1 3-1.1 1.5 1.1 3 1.1" />
+        <path d="M6 20.4c1 0 1-.9 2-.9s1 .9 2 .9 1-.9 2-.9 1 .9 2 .9 1-.9 2-.9 1 .9 2 .9" />
+      </svg>
+    </span>
+  );
+}
+
+function Brand({ brand }: { brand: string }) {
   return (
     <a class="brand" href="/" aria-label={`${brand} home`}>
-      <span class="brand-mark">
-        <Icon name="layers" />
-      </span>
+      <BrandMark />
       {brand}
-      {version && <small>{version}</small>}
     </a>
   );
 }
 
-export function AppShell({ brand, version, nav, tabs, activeId, user, onSignOut, flush = false, children }: AppShellProps) {
+export function AppShell({ brand, nav, tabs, activeId, user, onSignOut, flush = false, children }: AppShellProps) {
   const accountActive = activeId === 'account';
   return (
     <div class="app">
       <aside class="sidebar">
-        <Brand brand={brand} version={version} />
+        <Brand brand={brand} />
         <nav class="nav" aria-label="Main">
           {nav.map((group, i) => (
             <Fragment key={group.label ?? i}>
@@ -115,7 +125,7 @@ export function AppShell({ brand, version, nav, tabs, activeId, user, onSignOut,
       </aside>
 
       <header class="topbar">
-        <Brand brand={brand} version={undefined} />
+        <Brand brand={brand} />
         <span class="spacer" />
         <a class="account-chip" href={user.href} aria-label={`Account: ${user.name}`} aria-current={accountActive ? 'page' : undefined}>
           <Avatar name={user.name} />
@@ -142,9 +152,7 @@ export function AuthLayout({ brand, children }: { brand: string; children: Compo
     <div class="auth-layout">
       <div class="auth-card">
         <div class="auth-brand">
-          <span class="brand-mark">
-            <Icon name="layers" />
-          </span>
+          <BrandMark />
           {brand}
         </div>
         {children}

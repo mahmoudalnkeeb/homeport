@@ -1,16 +1,18 @@
-import { extname } from 'node:path';
-
-import { Body, Controller, Delete, Get, HttpCode, Post, Put, Query, Res, UploadedFiles, UseInterceptors } from '@nestjs/common';
-import { FilesInterceptor, type NodeResponse } from '@nestjs/platform-node';
+import { Body, Controller, Delete, Get, HttpCode, Post, Put, Query, Res } from '@nestjs/common';
+import type { NodeResponse } from '@nestjs/platform-node';
 
 import { CurrentUser, RequirePermission } from '../../auth/auth.decorators.js';
 import { EmptyResponse, RawResponse, Serialize } from '../../common/http/serialize.js';
+import { RequestHost } from '../../storage/request-host.js';
+import { serveObject } from '../../storage/serve-object.js';
+import { UploadFinishDto, UploadTicketDto } from '../../storage/storage.dto.js';
+import { StorageService } from '../../storage/storage.service.js';
 import type { User } from '../../users/users.schema.js';
 import { ToolSummaryDto } from '../tool.dto.js';
 import {
   FileEntryDto,
+  FileUploadStartDto,
   FolderQueryDto,
-  OptionalPathQueryDto,
   RawQueryDto,
   RecentQueryDto,
   RenameDto,
@@ -20,12 +22,13 @@ import {
 } from './files.dto.js';
 import { FilesService } from './files.service.js';
 
-const ACTIVE_CONTENT = new Set(['.html', '.htm', '.svg', '.xml', '.xhtml']);
-
 @RequirePermission('files:read')
 @Controller('files')
 export class FilesController {
-  constructor(private readonly files: FilesService) {}
+  constructor(
+    private readonly files: FilesService,
+    private readonly storage: StorageService
+  ) {}
 
   @Get()
   @Serialize(FileEntryDto)
@@ -35,27 +38,31 @@ export class FilesController {
 
   @Get('raw')
   @RawResponse()
-  async raw(@CurrentUser() user: User, @Query() query: RawQueryDto, @Res() res: NodeResponse): Promise<void> {
-    const { absolute, name } = await this.files.file(user, query.path);
-    res.setHeader('X-Content-Type-Options', 'nosniff');
-    if (ACTIVE_CONTENT.has(extname(name).toLowerCase())) res.setHeader('Content-Security-Policy', 'sandbox');
-    const done = (error?: Error) => {
-      if (error && !res.headersSent) res.status(500).end();
-    };
-    const disposition = `${query.download ? 'attachment' : 'inline'}; filename*=UTF-8''${encodeURIComponent(name)}`;
-    res.sendFile(absolute, { dotfiles: 'allow', headers: { 'Content-Disposition': disposition } }, done);
+  async raw(@CurrentUser() user: User, @RequestHost() host: string, @Query() query: RawQueryDto, @Res() res: NodeResponse): Promise<void> {
+    const { key, name } = await this.files.file(user, query.path);
+    await serveObject(this.storage, res, { host, key, name, download: query.download });
   }
 
   @RequirePermission('files:write')
-  @Post('upload')
-  @UseInterceptors(FilesInterceptor('files', 100))
+  @Post('uploads')
+  @Serialize(UploadTicketDto)
+  startUpload(@CurrentUser() user: User, @RequestHost() host: string, @Body() body: FileUploadStartDto) {
+    return this.files.startUpload(user, host, body);
+  }
+
+  @RequirePermission('files:write')
+  @Post('uploads/finish')
   @Serialize(FileEntryDto)
-  upload(
-    @CurrentUser() user: User,
-    @Query() query: OptionalPathQueryDto,
-    @UploadedFiles() files: { originalname: string; path: string }[] | undefined
-  ) {
-    return this.files.upload(user, query.path, files ?? []);
+  finishUpload(@CurrentUser() user: User, @Body() body: UploadFinishDto) {
+    return this.files.finishUpload(user, body);
+  }
+
+  @RequirePermission('files:write')
+  @Post('uploads/abort')
+  @HttpCode(200)
+  @EmptyResponse()
+  abortUpload(@CurrentUser() user: User, @Body() body: UploadFinishDto) {
+    return this.files.abortUpload(user, body);
   }
 
   @RequirePermission('files:write')

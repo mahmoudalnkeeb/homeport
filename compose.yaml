@@ -1,12 +1,14 @@
+name: homeport
+
 services:
   postgres:
     image: postgres:18-alpine
-    container_name: homelab-postgres
+    container_name: homeport-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-homelab}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-homelab}
-      POSTGRES_DB: ${POSTGRES_DB:-homelab}
+      POSTGRES_USER: ${POSTGRES_USER:-homeport}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-homeport}
+      POSTGRES_DB: ${POSTGRES_DB:-homeport}
     ports:
       - '127.0.0.1:${POSTGRES_PORT:-5432}:5432'
     volumes:
@@ -17,30 +19,59 @@ services:
       timeout: 3s
       retries: 10
 
-  utility-server:
+  minio:
+    image: pgsty/minio:RELEASE.2026-08-04T00-00-00Z
+    container_name: homeport-minio
+    restart: unless-stopped
+    command: server /data --console-address ':9001'
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY:-homeport}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY:-homeport-minio}
+    ports:
+      - '${PUBLISH_ADDRESS:-0.0.0.0}:${MINIO_PORT:-9000}:9000'
+      - '127.0.0.1:${MINIO_CONSOLE_PORT:-9001}:9001'
+    volumes:
+      - ${OBJECTS_PATH:-objects}:/data
+    healthcheck:
+      test: ['CMD', 'curl', '-fsS', 'http://127.0.0.1:9000/minio/health/live']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  homeport:
     build: .
-    image: homelab/utility-server:latest
-    container_name: utility-server
-    hostname: ${LAB_HOSTNAME:-homelab}
+    image: homeport/homeport:latest
+    container_name: homeport
+    hostname: ${LAB_HOSTNAME:-homeport}
     restart: unless-stopped
     depends_on:
       postgres:
         condition: service_healthy
+      minio:
+        condition: service_healthy
     ports:
-      - '${PORT:-3000}:3000'
+      - '${PUBLISH_ADDRESS:-0.0.0.0}:${PORT:-3000}:3000'
     extra_hosts:
       - 'host.docker.internal:host-gateway'
     environment:
-      DATABASE_URL: postgres://${POSTGRES_USER:-homelab}:${POSTGRES_PASSWORD:-homelab}@postgres:5432/${POSTGRES_DB:-homelab}
+      DATABASE_URL: postgres://${POSTGRES_USER:-homeport}:${POSTGRES_PASSWORD:-homeport}@postgres:5432/${POSTGRES_DB:-homeport}
+      S3_ENDPOINT: http://minio:9000
+      S3_PUBLIC_ENDPOINT: ${S3_PUBLIC_ENDPOINT:-}
+      S3_PUBLIC_PORT: ${MINIO_PORT:-9000}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-homeport}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:-homeport-minio}
+      S3_BUCKET: ${S3_BUCKET:-homeport}
+      TRANSCODE_CONCURRENCY: ${TRANSCODE_CONCURRENCY:-1}
       MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-4096}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
       PUBLIC_PORT: ${PORT:-3000}
       HOST_AGENT_URL: ${HOST_AGENT_URL:-http://host.docker.internal:3001}
       AGENT_TOKEN: ${AGENT_TOKEN:-}
       LAN_URLS: ${LAN_URLS:-}
+      TRUST_PROXY: ${TRUST_PROXY:-}
     volumes:
-      - ${DATA_PATH:-./data}:/data
       - ${STATE_PATH:-./state}:/state
 
 volumes:
   pgdata:
+  objects:

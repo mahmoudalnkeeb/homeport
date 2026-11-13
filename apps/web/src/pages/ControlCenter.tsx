@@ -1,4 +1,4 @@
-import type { ActivityEvent, ActivitySnapshot, SystemSnapshot, ToolInfo, ToolSummary, UserInfo, UserStats } from '@homelab/contracts';
+import type { ActivityEvent, ActivitySnapshot, SystemSnapshot, ToolInfo, ToolSummary, UserInfo, UserStats } from '@homeport/contracts';
 import {
   Badge,
   BarList,
@@ -26,7 +26,7 @@ import {
   StatusDot,
   timeAgo,
   type IconName,
-} from '@homelab/ui';
+} from '@homeport/ui';
 
 import { api } from '../api';
 import { useTools } from '../app';

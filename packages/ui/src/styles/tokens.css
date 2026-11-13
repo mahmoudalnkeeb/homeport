@@ -29,6 +29,14 @@
   --radius-lg: 12px;
   --radius-full: 999px;
 
+  --media-bg: #0b0b0c;
+  --media-fg: #f4f2ee;
+  --media-fg-muted: rgb(244 242 238 / 0.72);
+  --media-track: rgb(244 242 238 / 0.24);
+  --media-buffered: rgb(244 242 238 / 0.45);
+  --media-scrim: linear-gradient(to top, rgb(0 0 0 / 0.78), rgb(0 0 0 / 0.38) 55%, transparent);
+  --media-panel: rgb(20 20 22 / 0.92);
+
   --dur-fast: 120ms;
   --dur-base: 200ms;
   --ease-out: cubic-bezier(0.2, 0.7, 0.2, 1);

@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { isAbsolute, join, resolve } from 'node:path';
 import { parseEnv } from 'node:util';
 
-import { HostSampler } from '@homelab/host-metrics';
+import { HostSampler } from '@homeport/host-metrics';
 
 import { createAgentServer } from './server.js';
 
@@ -22,7 +22,7 @@ function port(value: string | undefined, fallback: number): number {
 
 const agentPort = port(env('AGENT_PORT'), 3001);
 const agentHost = env('AGENT_HOST') ?? '127.0.0.1';
-const diskSetting = env('AGENT_DISK_PATH') ?? env('DATA_PATH') ?? env('DATA_DIR') ?? 'data';
+const diskSetting = env('AGENT_DISK_PATH') ?? '.';
 const diskPath = isAbsolute(diskSetting) ? diskSetting : resolve(REPO_ROOT, diskSetting);
 const token = env('AGENT_TOKEN') || undefined;
 
@@ -32,7 +32,7 @@ sampler.start();
 const server = createAgentServer(sampler, token ? { token } : {});
 server.listen(agentPort, agentHost, () => {
   process.stdout.write(
-    `homelab agent: http://${agentHost}:${agentPort}/metrics (disk: ${diskPath}${token ? ', token required' : ''})\n`
+    `homeport agent: http://${agentHost}:${agentPort}/metrics (disk: ${diskPath}${token ? ', token required' : ''})\n`
   );
 });
 

@@ -6,7 +6,7 @@ export const filesTool: ToolDefinition = {
   manifest: {
     id: 'files',
     name: 'Files',
-    description: 'Browse, upload and stream files, video, audio, images and documents.',
+    description: 'Browse, upload and stream files, with adaptive video and audio playback.',
     icon: 'folder',
     permission: 'files:read',
     summaryUrl: '/api/files/summary',
