@@ -1,6 +1,6 @@
 import { tmpdir } from 'node:os';
 
-import { hostMetricsSchema } from '@homelab/contracts';
+import { hostMetricsSchema } from '@homeport/contracts';
 import { describe, expect, it } from 'vitest';
 
 import { HostSampler, runtimeKind } from '../src/index';

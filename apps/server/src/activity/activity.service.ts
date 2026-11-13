@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import type { ActivitySnapshot } from '@homelab/contracts';
+import type { ActivitySnapshot } from '@homeport/contracts';
 import { count, desc, eq } from 'drizzle-orm';
 
 import { Paginated, pageWindow, type PaginationQueryDto } from '../common/http/pagination.js';

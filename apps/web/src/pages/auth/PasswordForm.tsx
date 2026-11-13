@@ -1,5 +1,5 @@
-import type { Me } from '@homelab/contracts';
-import { Button, Field, Input, Notice } from '@homelab/ui';
+import type { Me } from '@homeport/contracts';
+import { Button, Field, Input, Notice } from '@homeport/ui';
 import { useState } from 'preact/hooks';
 
 import { api } from '../../api';

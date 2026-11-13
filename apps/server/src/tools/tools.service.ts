@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { hasPermission, type ToolInfo } from '@homelab/contracts';
+import { hasPermission, type ToolInfo } from '@homeport/contracts';
 
 import { Paginated } from '../common/http/pagination.js';
 import type { Actor } from '../users/users.schema.js';

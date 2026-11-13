@@ -2,7 +2,7 @@ import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 
-import type { HostMetrics } from '@homelab/contracts';
+import type { HostMetrics } from '@homeport/contracts';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { envSchema } from '../src/config/env.js';
@@ -38,7 +38,7 @@ async function fakeAgent(status: number, body: unknown, token?: string): Promise
   return `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
 }
 
-const service = (env: Record<string, string>) => new SystemService(envSchema.parse({ ...BASE, DATA_DIR: tmpdir(), ...env }));
+const service = (env: Record<string, string>) => new SystemService(envSchema.parse({ ...BASE, DISK_PATH: tmpdir(), ...env }));
 
 afterEach(async () => {
   await Promise.all(servers.splice(0).map((server) => new Promise((resolve) => server.close(resolve))));

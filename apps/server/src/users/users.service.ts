@@ -10,7 +10,7 @@ import {
   NotFoundException,
   type OnApplicationBootstrap,
 } from '@nestjs/common';
-import type { UserStats } from '@homelab/contracts';
+import type { UserStats } from '@homeport/contracts';
 import { and, asc, count, eq, ne, sql } from 'drizzle-orm';
 
 import { ActivityService } from '../activity/activity.service.js';

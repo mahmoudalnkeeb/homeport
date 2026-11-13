@@ -1,4 +1,5 @@
 import {
+  AudioPlayer,
   Badge,
   BarList,
   Breakdown,
@@ -6,6 +7,7 @@ import {
   Card,
   Cluster,
   confirm,
+  BrandMark,
   DataTable,
   EmptyState,
   Field,
@@ -27,11 +29,79 @@ import {
   Stack,
   Stat,
   toast,
-} from '@homelab/ui';
+  VideoPlayer,
+  Pagination,
+} from '@homeport/ui';
 import type { ComponentChildren } from 'preact';
-import { useState } from 'preact/hooks';
+import { useEffect, useState } from 'preact/hooks';
+
+import { usePlayer } from '../media';
 
 import './design-system.css';
+
+function toneUrl(seconds = 6, rate = 22050): string {
+  const samples = seconds * rate;
+  const view = new DataView(new ArrayBuffer(44 + samples * 2));
+  const text = (offset: number, value: string) => [...value].forEach((char, i) => view.setUint8(offset + i, char.charCodeAt(0)));
+  text(0, 'RIFF');
+  view.setUint32(4, 36 + samples * 2, true);
+  text(8, 'WAVEfmt ');
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, 1, true);
+  view.setUint32(24, rate, true);
+  view.setUint32(28, rate * 2, true);
+  view.setUint16(32, 2, true);
+  view.setUint16(34, 16, true);
+  text(36, 'data');
+  view.setUint32(40, samples * 2, true);
+  for (let i = 0; i < samples; i++) {
+    const t = i / rate;
+    const note = [220, 277.18, 329.63][Math.floor(t * 2) % 3] ?? 220;
+    view.setInt16(44 + i * 2, Math.sin(2 * Math.PI * note * t) * Math.exp(-3 * (t % 0.5)) * 9000, true);
+  }
+  return URL.createObjectURL(new Blob([view], { type: 'audio/wav' }));
+}
+
+function MediaExamples() {
+  const [src, setSrc] = useState('');
+  const play = usePlayer();
+  useEffect(() => {
+    const url = toneUrl();
+    setSrc(url);
+    return () => URL.revokeObjectURL(url);
+  }, []);
+  if (!src) return null;
+  return (
+    <Stack>
+      <AudioPlayer src={src} title="Arpeggio.wav" />
+      <VideoPlayer src={src} title="Video chrome over an audio-only source" />
+      <Button
+        icon="list-music"
+        onClick={() =>
+          play(
+            ['One', 'Two', 'Three'].map((name, i) => ({
+              id: name,
+              kind: i === 1 ? 'video' : 'audio',
+              title: `Arpeggio ${name}.wav`,
+              src,
+              download: src,
+              stream: null,
+            })),
+            0
+          )
+        }
+      >
+        Play a three-track queue
+      </Button>
+    </Stack>
+  );
+}
+
+function PaginationExample() {
+  const [page, setPage] = useState(6);
+  return <Pagination page={page} totalPages={20} onPage={setPage} />;
+}
 
 const SEMANTIC = [
   'bg',
@@ -89,9 +159,9 @@ export default function DesignSystem() {
   return (
     <>
       <PageHeader
-        eyebrow={<span class="eyebrow">Internal · @homelab/ui</span>}
-        title="Homelab design system"
-        description="Every tool builds its UI from these components and tokens. Import from @homelab/ui; never hard-code colors."
+        eyebrow={<span class="eyebrow">Internal · @homeport/ui</span>}
+        title="Homeport design system"
+        description="Every tool builds its UI from these components and tokens. Import from @homeport/ui; never hard-code colors."
       />
 
       <DsSection title="Color" description="Semantic tokens with light and dark values. Toggle the theme in the sidebar.">
@@ -123,7 +193,10 @@ export default function DesignSystem() {
         </div>
       </DsSection>
 
-      <DsSection title="Buttons" description="<Button>, <LinkButton>, <IconButton>. One primary action per view; danger only to confirm destruction.">
+      <DsSection
+        title="Buttons"
+        description="<Button>, <LinkButton>, <IconButton>. One primary action per view; danger only to confirm destruction."
+      >
         <Stack>
           <Cluster>
             <Button variant="primary" icon="upload">
@@ -225,6 +298,20 @@ export default function DesignSystem() {
         </Grid>
       </DsSection>
 
+      <DsSection
+        title="Pagination"
+        description="<Pagination> for server-paged lists: previous/next plus up to seven page slots. Hidden when there is one page."
+      >
+        <PaginationExample />
+      </DsSection>
+
+      <DsSection
+        title="Brand"
+        description="<BrandMark>: a roof with a lit window over water, for Homeport. The favicon uses the same paths."
+      >
+        <BrandMark />
+      </DsSection>
+
       <DsSection title="Table" description="<DataTable> with typed columns; numeric columns are mono and right-aligned.">
         <DataTable
           rowKey={(row) => row.name}
@@ -240,7 +327,10 @@ export default function DesignSystem() {
         />
       </DsSection>
 
-      <DsSection title="Feedback" description="toast() for outcomes, confirm() / prompt() for decisions, <Notice> for section state, <EmptyState> that says what to do next.">
+      <DsSection
+        title="Feedback"
+        description="toast() for outcomes, confirm() / prompt() for decisions, <Notice> for section state, <EmptyState> that says what to do next."
+      >
         <Stack>
           <Cluster>
             <Button icon="check" onClick={() => toast('Uploaded 3 files')}>
@@ -249,7 +339,11 @@ export default function DesignSystem() {
             <Button icon="alert" onClick={() => toast('Folder already exists', 'error')}>
               Error toast
             </Button>
-            <Button onClick={() => void confirm({ title: 'Delete file?', message: '“notes.md” will be permanently deleted.', confirmLabel: 'Delete' })}>
+            <Button
+              onClick={() =>
+                void confirm({ title: 'Delete file?', message: '“notes.md” will be permanently deleted.', confirmLabel: 'Delete' })
+              }
+            >
               confirm()
             </Button>
             <Button onClick={() => void prompt({ title: 'Rename', label: 'New name', value: 'notes.md' })}>prompt()</Button>
@@ -264,6 +358,13 @@ export default function DesignSystem() {
             Run <code>pnpm agent</code> on the host to report its real CPU, memory and disk.
           </Notice>
         </Stack>
+      </DsSection>
+
+      <DsSection
+        title="Media"
+        description="<VideoPlayer>, <AudioPlayer>: custom chrome over native playback. Pass hls for an adaptive stream (hls.js loads on demand) and src as the progressive fallback. Keys: Space/K, J/L, arrows, M, F, Shift+N/P for next/previous. <MediaDock> is the app-wide player: it expands over the page, minimizes to a corner (Esc) and plays a queue in order."
+      >
+        <MediaExamples />
       </DsSection>
 
       <Section title="Icons">

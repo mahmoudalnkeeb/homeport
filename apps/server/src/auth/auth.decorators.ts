@@ -1,5 +1,5 @@
 import { createParamDecorator, SetMetadata, type ExecutionContext } from '@nestjs/common';
-import type { Permission } from '@homelab/contracts';
+import type { Permission } from '@homeport/contracts';
 
 import type { User } from '../users/users.schema.js';
 

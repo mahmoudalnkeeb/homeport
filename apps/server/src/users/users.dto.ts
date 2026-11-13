@@ -9,7 +9,7 @@ import {
   type UpdateUserBody,
   type UserInfo,
   type UserStats,
-} from '@homelab/contracts';
+} from '@homeport/contracts';
 import { Expose } from 'class-transformer';
 import { IsBoolean, IsIn, IsOptional, IsString, Matches, MaxLength, MinLength } from 'class-validator';
 

@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { hasPermission, type ToolSummary } from '@homelab/contracts';
+import { hasPermission, type ToolSummary } from '@homeport/contracts';
 
 import type { Actor } from '../../users/users.schema.js';
 import { FilesService } from '../files/files.service.js';

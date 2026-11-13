@@ -1,4 +1,4 @@
-import { PASSWORD_MIN, type ChangePasswordBody, type LoginBody, type Me, type Permission, type Role } from '@homelab/contracts';
+import { PASSWORD_MIN, type ChangePasswordBody, type LoginBody, type Me, type Permission, type Role } from '@homeport/contracts';
 import { Expose } from 'class-transformer';
 import { IsString, MaxLength, MinLength } from 'class-validator';
 

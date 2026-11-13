@@ -1,4 +1,4 @@
-import { Button, confirm, formatBytes, Icon, Notice, prompt, Segmented, timeAgo, toast } from '@homelab/ui';
+import { Button, confirm, formatBytes, Icon, Notice, prompt, Segmented, timeAgo, toast } from '@homeport/ui';
 import { useLocation } from 'preact-iso';
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
 
@@ -108,7 +108,7 @@ export default function MarkdownPage() {
   useEffect(() => {
     document.title = `${dirty ? '• ' : ''}${doc.name} · Markdown`;
     return () => {
-      document.title = 'Homelab';
+      document.title = 'Homeport';
     };
   }, [dirty, doc.name]);
 

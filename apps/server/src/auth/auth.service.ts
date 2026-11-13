@@ -1,5 +1,5 @@
 import { BadRequestException, HttpStatus, Injectable, Logger, UnauthorizedException, type OnApplicationBootstrap } from '@nestjs/common';
-import { homeOf, ROLE_PERMISSIONS, type Me } from '@homelab/contracts';
+import { homeOf, ROLE_PERMISSIONS, type Me } from '@homeport/contracts';
 
 import { AppError } from '../common/http/app-error.js';
 import { SessionsService } from '../sessions/sessions.service.js';

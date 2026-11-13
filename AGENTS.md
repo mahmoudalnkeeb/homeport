@@ -40,7 +40,7 @@ Make the smallest correct change that fits the existing architecture. Optimize t
 - No code comments. Express intent through names, types and tests; put explanations in docs. Tool directives (`@ts-expect-error`, lint-disable) are the only exception.
 
 ## Validation and API contracts
-- HTTP input is validated by class-validator DTOs (`<domain>.dto.ts`) through the global `ValidationPipe` (whitelist + forbidNonWhitelisted). Every `@Body()`, `@Query()` and `@Param()` takes a DTO class. A request DTO `implements` its interface from `@homelab/contracts`.
+- HTTP input is validated by class-validator DTOs (`<domain>.dto.ts`) through the global `ValidationPipe` (whitelist + forbidNonWhitelisted). Every `@Body()`, `@Query()` and `@Param()` takes a DTO class. A request DTO `implements` its interface from `@homeport/contracts`.
 - List query DTOs extend `PaginationQueryDto`.
 - Every JSON handler declares `@Serialize(ResponseDto)` or `@EmptyResponse()`. Response DTOs `@Expose()` only the fields clients may see, so DB rows can be returned without leaking internals.
 - Responses are always `{ data }`, `{ data, meta }` for lists, or `{ error: { status, code, message, details? } }`. `ResponseInterceptor` and `HttpErrorFilter` produce them; never build an envelope by hand.
@@ -83,11 +83,11 @@ Make the smallest correct change that fits the existing architecture. Optimize t
 ## This project
 - pnpm monorepo: `apps/server` (NestJS 12 API), `apps/web` (Preact + Vite SPA), `apps/agent` (native host metrics agent), `packages/contracts` (shared API types, envelope and error codes), `packages/host-metrics` (sampler used by server and agent), `packages/ui` (design system). Run scripts from the root (`pnpm dev|build|test|typecheck|lint`).
 - A tool is a server module in `apps/server/src/tools/<id>/` (registered in `TOOLS`) plus a client page in `apps/web/src/tools/<id>/` (registered in `CLIENT_TOOLS`); see README "Adding a tool".
-- API shapes live only in `@homelab/contracts`. Server DTOs implement them; the web client types against them. Never redeclare them in an app.
-- UI is built from `@homelab/ui` components; read `DESIGN.md` before UI work. Extend the package rather than restyling components inside a tool.
+- API shapes live only in `@homeport/contracts`. Server DTOs implement them; the web client types against them. Never redeclare them in an app.
+- UI is built from `@homeport/ui` components; read `DESIGN.md` before UI work. Extend the package rather than restyling components inside a tool.
 - HTTP runs on Nest's `NodeAdapter` (`@nestjs/platform-node`), not Express. Type `@Req()`/`@Res()` as `NodeRequest`/`NodeResponse`, import Multer interceptors and `MulterModule` from `@nestjs/platform-node`, and pass `new NodeAdapter()` to `createNestApplication()` in e2e tests. Express-only APIs (`res.download()`, `res.attachment()`, `req.accepts()`, `req.range()`) don't exist; use `res.sendFile()` with its `headers` option.
 - All filesystem access goes through `FilesService.resolve()`; never join client paths to `DATA_DIR` directly.
-- Auth: every route needs a session unless marked `@Public()`. Gate admin routes with `@RequirePermission(...)`, and file paths with `pathAccess()` from `@homelab/contracts`, the single rule both the server and the UI use. Roles and permissions live only in `ROLE_PERMISSIONS`.
+- Auth: every route needs a session unless marked `@Public()`. Gate admin routes with `@RequirePermission(...)`, and file paths with `pathAccess()` from `@homeport/contracts`, the single rule both the server and the UI use. Roles and permissions live only in `ROLE_PERMISSIONS`.
 - Database: Postgres via Drizzle. Each module owns its tables in its own `*.schema.ts` (users, sessions, activity); there is no central schema file. Inject the client with `@InjectDb()` and use the query builder. Migrations run at startup unless `DB_MIGRATE=false`.
 - Tests use PGlite with the real migrations (`test/support.ts`); no Docker needed. End-to-end tests boot `AppModule` and override the `DB` provider.
 - `STATE_DIR` holds only the initial admin password file and must never be inside `DATA_DIR`. Never log passwords, session tokens or temporary passwords.

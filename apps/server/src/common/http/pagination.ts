@@ -1,4 +1,4 @@
-import type { PaginationMeta, PaginationQuery } from '@homelab/contracts';
+import type { PaginationMeta, PaginationQuery } from '@homeport/contracts';
 import { Type } from 'class-transformer';
 import { IsInt, IsOptional, Max, Min } from 'class-validator';
 

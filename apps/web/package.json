@@ -1,5 +1,5 @@
 {
-  "name": "@homelab/web",
+  "name": "@homeport/web",
   "version": "2.0.0",
   "private": true,
   "type": "module",
@@ -11,8 +11,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@homelab/contracts": "workspace:*",
-    "@homelab/ui": "workspace:*",
+    "@homeport/contracts": "workspace:*",
+    "@homeport/ui": "workspace:*",
     "dompurify": "^3.4.17",
     "highlight.js": "^11.12.0",
     "marked": "^18.2.0",

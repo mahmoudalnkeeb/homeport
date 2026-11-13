@@ -1,5 +1,5 @@
-import type { FileEntry } from '@homelab/contracts';
-import { Dialog, EmptyState, formatBytes, formatDate, KIND_ICON, LinkButton, Skeleton } from '@homelab/ui';
+import type { FileEntry } from '@homeport/contracts';
+import { Dialog, EmptyState, formatBytes, formatDate, KIND_ICON, LinkButton, Skeleton } from '@homeport/ui';
 import { useEffect, useState } from 'preact/hooks';
 
 import { api, rawUrl } from '../../api';
@@ -31,15 +31,6 @@ function PreviewBody({ entry }: { entry: FileEntry }) {
   switch (entry.kind) {
     case 'image':
       return <img src={url} alt={entry.name} />;
-    case 'video':
-      return <video src={url} controls autoplay playsinline preload="metadata" />;
-    case 'audio':
-      return (
-        <>
-          <EmptyState icon="music" title={entry.name} />
-          <audio src={url} controls autoplay />
-        </>
-      );
     case 'pdf':
       return <iframe src={url} title={entry.name} />;
     case 'markdown':
@@ -97,4 +88,3 @@ export function PreviewDialog({ entry, onClose }: { entry: FileEntry | null; onC
     </Dialog>
   );
 }
-

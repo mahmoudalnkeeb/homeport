@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs';
 import { statfs } from 'node:fs/promises';
 import os from 'node:os';
 
-import type { HostMetrics, SystemSample } from '@homelab/contracts';
+import type { HostMetrics, SystemSample } from '@homeport/contracts';
 
 export interface HostSamplerOptions {
   diskPath: string;

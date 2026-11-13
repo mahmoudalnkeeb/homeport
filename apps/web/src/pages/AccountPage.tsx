@@ -1,7 +1,8 @@
-import type { Permission } from '@homelab/contracts';
-import { Avatar, Badge, Button, Card, Grid, Icon, PageHeader, ThemeControl, toast, type IconName } from '@homelab/ui';
+import type { Permission } from '@homeport/contracts';
+import { Avatar, Badge, Button, Card, Grid, Icon, PageHeader, ThemeControl, toast, type IconName } from '@homeport/ui';
 
 import { useAuth } from '../auth';
+import { useInstall } from '../install';
 import { PasswordForm } from './auth/PasswordForm';
 
 const ABILITIES: { permission: Permission; icon: IconName; text: string }[] = [
@@ -11,6 +12,47 @@ const ABILITIES: { permission: Permission; icon: IconName; text: string }[] = [
   { permission: 'system:read', icon: 'cpu', text: "Monitor the host's CPU, memory, disk and network" },
   { permission: 'activity:read', icon: 'activity', text: "See everyone's activity and usage" },
 ];
+
+function InstallCard() {
+  const state = useInstall();
+  return (
+    <Card span={6} title="Install app" icon="smartphone">
+      {state.kind === 'installed' && (
+        <p class="muted">
+          <Icon name="check" /> Homeport is installed on this device.
+        </p>
+      )}
+      {state.kind === 'ready' && (
+        <>
+          <p class="muted">Add Homeport to your home screen or desktop. It opens in its own window, like any other app.</p>
+          <div>
+            <Button
+              icon="download"
+              onClick={() => void state.install().then((accepted) => accepted && toast('Homeport installed'))}
+            >
+              Install Homeport
+            </Button>
+          </div>
+        </>
+      )}
+      {state.kind === 'ios' && (
+        <p class="muted">
+          In Safari, tap Share <Icon name="share" /> and choose <strong>Add to Home Screen</strong>.
+        </p>
+      )}
+      {state.kind === 'insecure' && (
+        <p class="muted">
+          Installing needs a secure connection. Open Homeport over HTTPS, for example through Tailscale or a reverse proxy, then come back here.
+        </p>
+      )}
+      {state.kind === 'manual' && (
+        <p class="muted">
+          Open your browser's menu and choose <strong>Install app</strong> or <strong>Add to Home screen</strong>.
+        </p>
+      )}
+    </Card>
+  );
+}
 
 export default function AccountPage() {
   const { me, can, update, signOut } = useAuth();
@@ -66,8 +108,10 @@ export default function AccountPage() {
           <ThemeControl />
         </Card>
 
+        <InstallCard />
+
         <Card span={6} title="Session" icon="logout">
-          <p class="muted">Sign out of homelab on this device.</p>
+          <p class="muted">Sign out of Homeport on this device.</p>
           <div>
             <Button icon="logout" onClick={() => void signOut()}>
               Sign out

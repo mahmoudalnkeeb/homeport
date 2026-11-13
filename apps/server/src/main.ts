@@ -10,11 +10,13 @@ import { NodeAdapter, type NestNodeApplication, type NodeRequest, type NodeRespo
 
 import { ActivityService, apiArea } from './activity/activity.service.js';
 import { AppModule } from './app.module.js';
-import { ENV, REPO_ROOT, type Environment } from './config/env.js';
+import { ENV, envSchema, REPO_ROOT, type Environment } from './config/env.js';
 
 async function bootstrap(): Promise<void> {
   loadDotenv({ path: join(REPO_ROOT, '.env'), quiet: true });
-  const app = await NestFactory.create<NestNodeApplication>(AppModule, new NodeAdapter());
+  const { TRUST_PROXY } = envSchema.parse(process.env);
+  const adapter = new NodeAdapter(TRUST_PROXY ? { trustProxy: TRUST_PROXY } : {});
+  const app = await NestFactory.create<NestNodeApplication>(AppModule, adapter);
   const env = app.get<Environment>(ENV);
   const activity = app.get(ActivityService);
   const logger = new Logger('Bootstrap');
@@ -40,7 +42,7 @@ async function bootstrap(): Promise<void> {
   }
 
   await app.listen(env.PORT, env.HOST);
-  logger.log(`Homelab utility server listening on http://localhost:${env.PORT}`);
+  logger.log(`Homeport listening on http://localhost:${env.PORT}`);
 }
 
 void bootstrap();

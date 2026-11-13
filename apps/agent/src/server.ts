@@ -1,6 +1,6 @@
 import { createServer, type Server } from 'node:http';
 
-import type { HostSampler } from '@homelab/host-metrics';
+import type { HostSampler } from '@homeport/host-metrics';
 
 export function createAgentServer(sampler: HostSampler, { token }: { token?: string } = {}): Server {
   return createServer((req, res) => {

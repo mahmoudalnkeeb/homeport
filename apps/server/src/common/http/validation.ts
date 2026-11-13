@@ -1,5 +1,5 @@
 import { HttpStatus, ValidationPipe, type ValidationError } from '@nestjs/common';
-import type { ApiErrorDetail } from '@homelab/contracts';
+import type { ApiErrorDetail } from '@homeport/contracts';
 import { Transform } from 'class-transformer';
 
 import { AppError } from './app-error.js';

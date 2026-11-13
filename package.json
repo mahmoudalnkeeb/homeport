@@ -1,7 +1,7 @@
 {
-  "name": "homelab",
+  "name": "homeport",
   "version": "2.0.0",
-  "description": "Modular homelab utility server: NestJS API + Preact web app.",
+  "description": "Self-hosted home server for your files, media and notes, with a host-health dashboard.",
   "private": true,
   "license": "MIT",
   "type": "module",
@@ -10,20 +10,22 @@
     "node": ">=24.15.0"
   },
   "scripts": {
-    "dev": "pnpm --filter @homelab/contracts --filter @homelab/host-metrics build && pnpm --parallel --filter @homelab/contracts --filter @homelab/host-metrics --filter @homelab/server --filter @homelab/web dev",
+    "dev": "pnpm --filter @homeport/contracts --filter @homeport/host-metrics build && pnpm --parallel --filter @homeport/contracts --filter @homeport/host-metrics --filter @homeport/server --filter @homeport/web dev",
     "build": "pnpm -r build",
-    "start": "pnpm --filter @homelab/server start",
-    "typecheck": "pnpm --filter @homelab/contracts --filter @homelab/host-metrics build && pnpm -r typecheck",
+    "start": "pnpm --filter @homeport/server start",
+    "typecheck": "pnpm --filter @homeport/contracts --filter @homeport/host-metrics build && pnpm -r typecheck",
     "lint": "oxlint --config oxlint.json apps packages",
-    "test": "pnpm --filter @homelab/contracts --filter @homelab/host-metrics build && pnpm -r test",
+    "test": "pnpm --filter @homeport/contracts --filter @homeport/host-metrics build && pnpm -r test",
     "format": "prettier --write \"{apps,packages}/*/{src,test}/**/*.{ts,tsx,css}\" \"*.json\"",
-    "agent": "pnpm --filter @homelab/agent... build && pnpm --filter @homelab/agent start",
+    "agent": "pnpm --filter @homeport/agent... build && pnpm --filter @homeport/agent start",
     "db:up": "docker compose up -d --wait postgres",
     "db:down": "docker compose stop postgres",
-    "db:generate": "pnpm --filter @homelab/server db:generate",
-    "db:migrate": "pnpm --filter @homelab/server db:migrate",
-    "db:studio": "pnpm --filter @homelab/server db:studio",
-    "db:check": "pnpm --filter @homelab/server db:check"
+    "db:generate": "pnpm --filter @homeport/server db:generate",
+    "db:migrate": "pnpm --filter @homeport/server db:migrate",
+    "db:studio": "pnpm --filter @homeport/server db:studio",
+    "db:check": "pnpm --filter @homeport/server db:check",
+    "services:up": "docker compose up -d --wait postgres minio",
+    "services:down": "docker compose stop postgres minio"
   },
   "devDependencies": {
     "oxlint": "^1.93.0",

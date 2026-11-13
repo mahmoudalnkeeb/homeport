@@ -1,5 +1,5 @@
 {
-  "name": "@homelab/agent",
+  "name": "@homeport/agent",
   "version": "2.0.0",
   "private": true,
   "type": "module",
@@ -12,10 +12,10 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@homelab/host-metrics": "workspace:*"
+    "@homeport/host-metrics": "workspace:*"
   },
   "devDependencies": {
-    "@homelab/contracts": "workspace:*",
+    "@homeport/contracts": "workspace:*",
     "@types/node": "^24.19.2",
     "vitest": "^4.1.12",
     "zod": "^4.6.7"

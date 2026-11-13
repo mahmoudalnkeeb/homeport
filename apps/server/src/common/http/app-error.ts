@@ -1,5 +1,5 @@
 import { HttpException, type HttpStatus } from '@nestjs/common';
-import type { ApiErrorDetail, ErrorCode } from '@homelab/contracts';
+import type { ApiErrorDetail, ErrorCode } from '@homeport/contracts';
 
 export interface AppErrorBody {
   code: ErrorCode;

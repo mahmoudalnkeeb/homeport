@@ -1,4 +1,4 @@
-import { USERNAME_PATTERN, type Role, type UserInfo } from '@homelab/contracts';
+import { USERNAME_PATTERN, type Role, type UserInfo } from '@homeport/contracts';
 import {
   ActionSheet,
   Badge,
@@ -23,7 +23,7 @@ import {
   timeAgo,
   toast,
   type SheetAction,
-} from '@homelab/ui';
+} from '@homeport/ui';
 import { useLocation } from 'preact-iso';
 import { useEffect, useState } from 'preact/hooks';
 

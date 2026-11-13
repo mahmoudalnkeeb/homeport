@@ -1,4 +1,4 @@
-# Homelab design system: `@homelab/ui`
+# Homeport design system: `@homeport/ui`
 
 Source: `packages/ui/`. Live reference: `/ds` (internal, not linked in the UI).
 
@@ -9,12 +9,12 @@ A calm instrument panel: dense, legible, warm graphite neutrals with one signal-
 ## How tools use it
 
 ```tsx
-import { Button, Card, PageHeader, confirm, toast } from '@homelab/ui';
+import { Button, Card, PageHeader, confirm, toast } from '@homeport/ui';
 ```
 
-- **Components are the API.** Tools compose `@homelab/ui` components. A tool's own CSS file is only for layout specific to that tool (e.g. the Markdown workspace grid). It must not restyle buttons, cards or inputs, and it must not hard-code colors, sizes or radii. Use tokens.
+- **Components are the API.** Tools compose `@homeport/ui` components. A tool's own CSS file is only for layout specific to that tool (e.g. the Markdown workspace grid). It must not restyle buttons, cards or inputs, and it must not hard-code colors, sizes or radii. Use tokens.
 - **Missing piece?** Add it to `packages/ui` (component + styles + an example on `/ds`), then use it. Don't fork it inside a tool.
-- `@homelab/ui/styles.css` is imported once, by `apps/web/src/main.tsx`.
+- `@homeport/ui/styles.css` is imported once, by `apps/web/src/main.tsx`.
 
 ## Package contents
 
@@ -22,10 +22,11 @@ import { Button, Card, PageHeader, confirm, toast } from '@homelab/ui';
 | ---------------------------- | -------------------------------------------------------------------- |
 | `src/styles/tokens.css`      | Design tokens, light + dark                                          |
 | `src/styles/components.css`  | Base, layout and component styles                                    |
-| `src/components/layout.tsx`  | `AppShell` (sidebar on desktop; top bar + bottom tabs under 800px), `AuthLayout`, `Avatar`, `PageHeader`, `Section`, `ThemeControl` |
+| `src/components/layout.tsx`  | `BrandMark`, `AppShell` (sidebar on desktop; top bar + bottom tabs under 800px), `AuthLayout`, `Avatar`, `PageHeader`, `Section`, `ThemeControl` |
 | `src/components/controls.tsx`| `Button`, `LinkButton`, `IconButton`, `Segmented`, `Input`, `Field`, `Kbd` |
-| `src/components/data.tsx`    | `Card`, `Grid`, `Stack`, `Cluster`, `Stat`, `Meta`, `Meter`, `Breakdown`, `BarList`, `Sparkline`, `Badge`, `Chip`, `StatusDot`, `Rows`/`Row`, `EmptyState`, `Skeleton`, `Breadcrumbs`, `DataTable` |
+| `src/components/data.tsx`    | `Card`, `Grid`, `Stack`, `Cluster`, `Stat`, `Meta`, `Meter`, `Breakdown`, `BarList`, `Sparkline`, `Badge`, `Chip`, `StatusDot`, `Rows`/`Row`, `EmptyState`, `Skeleton`, `Breadcrumbs`, `DataTable`, `Pagination` |
 | `src/components/feedback.tsx`| `Dialog` (bottom sheet under 640px), `ActionSheet`, `FeedbackHost`, `toast()`, `confirm()`, `prompt()`, `copyText()` |
+| `src/components/media.tsx` | `VideoPlayer`, `AudioPlayer` (`compact` for the docked view; `onPrevious`/`onNext`/`onEnded` for queues), `MediaDock` (the app-wide player: expanded or minimized, with a playlist) |
 | `src/icons.tsx`              | `Icon`, `IconName`, `KIND_ICON` (Lucide paths, ISC)                  |
 | `src/theme.ts`               | `initTheme`, `setTheme`, `useTheme`, `resolvedTheme`                 |
 | `src/format.ts`              | `formatBytes`, `formatDuration`, `timeAgo`, `formatDate`             |

@@ -1,5 +1,5 @@
-import type { Me } from '@homelab/contracts';
-import { AuthLayout, Button, Field, Input, Notice } from '@homelab/ui';
+import type { Me } from '@homeport/contracts';
+import { AuthLayout, Button, Field, Input, Notice } from '@homeport/ui';
 import { useState } from 'preact/hooks';
 
 import { api } from '../../api';
@@ -25,10 +25,10 @@ export function SignIn({ onSignedIn }: { onSignedIn: (me: Me) => void }) {
   };
 
   return (
-    <AuthLayout brand="homelab">
+    <AuthLayout brand="homeport">
       <div>
         <h1>Sign in</h1>
-        <p class="muted">Use the account your homelab admin created for you.</p>
+        <p class="muted">Use the account your Homeport admin created for you.</p>
       </div>
       {error && <Notice tone="warning" title={error} />}
       <form onSubmit={submit}>

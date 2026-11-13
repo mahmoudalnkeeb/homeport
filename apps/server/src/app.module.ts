@@ -9,12 +9,13 @@ import { createValidationPipe } from './common/http/validation.js';
 import { EnvModule } from './config/env.js';
 import { DatabaseModule } from './database/database.module.js';
 import { HealthModule } from './health/health.module.js';
+import { StorageModule } from './storage/storage.module.js';
 import { SystemModule } from './system/system.module.js';
 import { ToolsModule } from './tools/tools.module.js';
 import { UsersModule } from './users/users.module.js';
 
 @Module({
-  imports: [EnvModule, DatabaseModule, HealthModule, ActivityModule, UsersModule, AuthModule, SystemModule, ToolsModule],
+  imports: [EnvModule, DatabaseModule, StorageModule, HealthModule, ActivityModule, UsersModule, AuthModule, SystemModule, ToolsModule],
   providers: [
     { provide: APP_PIPE, useFactory: createValidationPipe },
     { provide: APP_INTERCEPTOR, useClass: ResponseInterceptor },

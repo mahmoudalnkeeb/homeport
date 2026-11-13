@@ -27,7 +27,7 @@ describe('api', () => {
     await expect(api.files.rename({ path: 'notes/a.md', name: 'b.md' })).resolves.toEqual({ path: 'notes/b.md' });
     expect(fetch).toHaveBeenCalledWith('/api/files/rename', {
       method: 'POST',
-      headers: { 'X-Homelab-Request': '1', 'Content-Type': 'application/json' },
+      headers: { 'X-Homeport-Request': '1', 'Content-Type': 'application/json' },
       body: JSON.stringify({ path: 'notes/a.md', name: 'b.md' }),
     });
   });
