@@ -1,0 +1,11 @@
+**/node_modules
+**/dist
+**/coverage
+**/*.tsbuildinfo
+data
+.git
+.env
+.impeccable
+Dockerfile
+compose.yaml
+state

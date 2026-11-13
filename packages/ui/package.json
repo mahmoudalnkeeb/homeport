@@ -1,0 +1,25 @@
+{
+  "name": "@homelab/ui",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": ["**/*.css"],
+  "exports": {
+    ".": "./src/index.ts",
+    "./styles.css": "./src/styles/index.css"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@homelab/contracts": "workspace:*"
+  },
+  "peerDependencies": {
+    "preact": "^11.2.0"
+  },
+  "devDependencies": {
+    "preact": "^11.2.0",
+    "vitest": "^4.1.12"
+  }
+}

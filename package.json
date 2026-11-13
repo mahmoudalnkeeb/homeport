@@ -1,32 +1,33 @@
 {
-  "name": "utility-server",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
-  "scripts": {
-    "start": "node dist/app.js",
-    "start:dev": "nodemon --exec ts-node src/app.ts",
-    "build": "tsc",
-    "prestart": "npm run build",
-    "format": "prettier ./src/**/*.ts package.json --write"
+  "name": "homelab",
+  "version": "2.0.0",
+  "description": "Modular homelab utility server: NestJS API + Preact web app.",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "packageManager": "pnpm@12.4.1",
+  "engines": {
+    "node": ">=24.15.0"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "dependencies": {
-    "archiver": "^6.0.1",
-    "dotenv": "^16.4.5",
-    "ejs": "^3.1.9",
-    "express": "^4.18.2",
-    "express-validator": "^7.0.1"
+  "scripts": {
+    "dev": "pnpm --filter @homelab/contracts --filter @homelab/host-metrics build && pnpm --parallel --filter @homelab/contracts --filter @homelab/host-metrics --filter @homelab/server --filter @homelab/web dev",
+    "build": "pnpm -r build",
+    "start": "pnpm --filter @homelab/server start",
+    "typecheck": "pnpm --filter @homelab/contracts --filter @homelab/host-metrics build && pnpm -r typecheck",
+    "lint": "oxlint --config oxlint.json apps packages",
+    "test": "pnpm --filter @homelab/contracts --filter @homelab/host-metrics build && pnpm -r test",
+    "format": "prettier --write \"{apps,packages}/*/{src,test}/**/*.{ts,tsx,css}\" \"*.json\"",
+    "agent": "pnpm --filter @homelab/agent... build && pnpm --filter @homelab/agent start",
+    "db:up": "docker compose up -d --wait postgres",
+    "db:down": "docker compose stop postgres",
+    "db:generate": "pnpm --filter @homelab/server db:generate",
+    "db:migrate": "pnpm --filter @homelab/server db:migrate",
+    "db:studio": "pnpm --filter @homelab/server db:studio",
+    "db:check": "pnpm --filter @homelab/server db:check"
   },
   "devDependencies": {
-    "@types/archiver": "^6.0.2",
-    "@types/express": "^4.17.21",
-    "@types/node": "^20.11.5",
-    "nodemon": "^3.0.3",
-    "prettier": "^3.3.3",
-    "ts-node": "^10.9.2",
-    "typescript": "^5.3.3"
+    "oxlint": "^1.93.0",
+    "prettier": "^3.10.0",
+    "typescript": "^6.0.3"
   }
 }
