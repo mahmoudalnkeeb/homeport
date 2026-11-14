@@ -16,6 +16,9 @@ export interface MediaPlayerProps {
   onEnded?: (() => void) | undefined;
   onPrevious?: (() => void) | undefined;
   onNext?: (() => void) | undefined;
+  startAt?: number | undefined;
+  onProgress?: ((position: number, duration: number) => void) | undefined;
+  next?: { src: string; hls?: string | null | undefined } | undefined;
   children?: ComponentChildren;
 }
 
@@ -40,6 +43,8 @@ type MediaElement = HTMLVideoElement | HTMLAudioElement;
 const RATES = [0.5, 0.75, 1, 1.25, 1.5, 2];
 const VOLUME_KEY = 'lab-volume';
 const IDLE_MS = 2500;
+const PROGRESS_MS = 10_000;
+const RESUME_TAIL_SECONDS = 5;
 const MEDIA_EVENTS = [
   'play',
   'pause',
@@ -136,7 +141,7 @@ function useSource(ref: RefObject<MediaElement | null>, src: string, hlsUrl: str
       engine.current = null;
       setAdaptive(false);
       setQualities([]);
-      media.src = src;
+      if (media.getAttribute('src') !== src) media.src = src;
     };
 
     void (async () => {
@@ -204,6 +209,46 @@ function useEnded(ref: RefObject<MediaElement | null>, onEnded: (() => void) | u
     media.addEventListener('ended', handle);
     return () => media.removeEventListener('ended', handle);
   }, [ref]);
+}
+
+function useResume(
+  ref: RefObject<MediaElement | null>,
+  startAt: number | undefined,
+  onProgress: ((position: number, duration: number) => void) | undefined
+) {
+  const latest = useRef(onProgress);
+  useEffect(() => {
+    latest.current = onProgress;
+  });
+  useEffect(() => {
+    const media = ref.current;
+    if (!media) return;
+    let lastReport = Date.now();
+    const report = () => {
+      if (!Number.isFinite(media.duration) || media.duration <= 0 || media.currentTime <= 0) return;
+      lastReport = Date.now();
+      latest.current?.(media.currentTime, media.duration);
+    };
+    const tick = () => {
+      if (!media.paused && Date.now() - lastReport >= PROGRESS_MS) report();
+    };
+    const seek = () => {
+      if (startAt && startAt < media.duration - RESUME_TAIL_SECONDS) media.currentTime = startAt;
+    };
+    media.addEventListener('loadedmetadata', seek, { once: true });
+    media.addEventListener('timeupdate', tick);
+    media.addEventListener('pause', report);
+    media.addEventListener('ended', report);
+    window.addEventListener('pagehide', report);
+    return () => {
+      report();
+      media.removeEventListener('loadedmetadata', seek);
+      media.removeEventListener('timeupdate', tick);
+      media.removeEventListener('pause', report);
+      media.removeEventListener('ended', report);
+      window.removeEventListener('pagehide', report);
+    };
+  }, [ref, startAt]);
 }
 
 function TrackButtons({ onPrevious, onNext }: Pick<MediaPlayerProps, 'onPrevious' | 'onNext'>) {
@@ -379,11 +424,14 @@ export function VideoPlayer({
   onEnded,
   onPrevious,
   onNext,
+  startAt,
+  onProgress,
   children,
 }: MediaPlayerProps) {
   const frame = useRef<HTMLDivElement>(null);
   const video = useRef<HTMLVideoElement>(null);
   const playback = usePlayback(video);
+  useResume(video, startAt, onProgress);
   const source = useSource(video, src, hls, true);
   useEnded(video, onEnded);
   const [idle, setIdle] = useState(false);
@@ -509,13 +557,53 @@ export function AudioPlayer({
   onEnded,
   onPrevious,
   onNext,
+  next,
   children,
 }: MediaPlayerProps) {
-  const audio = useRef<HTMLAudioElement>(null);
+  const first = useRef<HTMLAudioElement>(null);
+  const second = useRef<HTMLAudioElement>(null);
+  const [slot, setSlot] = useState(0);
+  const audio = slot === 0 ? first : second;
+  const standby = slot === 0 ? second : first;
+  const gaplessNext = !hls && next && !next.hls ? next.src : null;
   const playback = usePlayback(audio);
   const source = useSource(audio, src, hls, false);
   const onKeyDown = useMediaKeys(audio, { onPrevious, onNext });
-  useEnded(audio, onEnded);
+  const latestEnded = useRef(onEnded);
+  const latestNext = useRef(gaplessNext);
+  useEffect(() => {
+    latestEnded.current = onEnded;
+    latestNext.current = gaplessNext;
+  });
+
+  useEffect(() => {
+    const element = standby.current;
+    if (!element) return;
+    if (gaplessNext) {
+      if (element.getAttribute('src') !== gaplessNext) element.src = gaplessNext;
+    } else if (element.hasAttribute('src')) {
+      element.removeAttribute('src');
+      element.load();
+    }
+  }, [standby, gaplessNext]);
+
+  useEffect(() => {
+    const media = audio.current;
+    if (!media) return;
+    const handle = () => {
+      const following = standby.current;
+      if (following && latestNext.current && following.getAttribute('src') === latestNext.current) {
+        following.volume = media.volume;
+        following.muted = media.muted;
+        following.playbackRate = media.playbackRate;
+        void following.play().catch(() => undefined);
+        setSlot((value) => 1 - value);
+      }
+      latestEnded.current?.();
+    };
+    media.addEventListener('ended', handle);
+    return () => media.removeEventListener('ended', handle);
+  }, [audio, standby]);
 
   return (
     <div
@@ -524,7 +612,8 @@ export function AudioPlayer({
       aria-label={`Audio player: ${title}`}
       onKeyDown={onKeyDown}
     >
-      <audio ref={audio} preload="metadata" autoPlay={autoPlay} />
+      <audio ref={first} preload={slot === 0 ? 'metadata' : 'auto'} autoPlay={autoPlay && slot === 0} />
+      <audio ref={second} preload={slot === 1 ? 'metadata' : 'auto'} autoPlay={autoPlay && slot === 1} />
       <div class="media-audio-head">
         <button
           type="button"
@@ -572,6 +661,8 @@ export interface DockTrack {
   src: string;
   hls?: string | null | undefined;
   poster?: string | null | undefined;
+  startAt?: number | undefined;
+  onProgress?: ((position: number, duration: number) => void) | undefined;
 }
 
 export interface MediaDockProps {
@@ -633,7 +724,11 @@ export function MediaDock({ tracks, index, minimized, onSelect, onMinimize, onEx
     onEnded: onNext,
     onPrevious,
     onNext,
+    startAt: track.startAt,
+    onProgress: track.onProgress,
   };
+  const following = tracks[index + 1];
+  const next = following?.kind === 'audio' ? { src: following.src, hls: following.hls } : undefined;
 
   return (
     <>
@@ -681,7 +776,7 @@ export function MediaDock({ tracks, index, minimized, onSelect, onMinimize, onEx
         </header>
         <div class="dock-main">
           <div class="dock-stage">
-            {track.kind === 'video' ? <VideoPlayer key={track.id} {...player} /> : <AudioPlayer key={track.id} {...player} />}
+            {track.kind === 'video' ? <VideoPlayer key={track.id} {...player} /> : <AudioPlayer {...player} next={next} />}
             {!minimized && children}
           </div>
           {!minimized && queued && showList && (

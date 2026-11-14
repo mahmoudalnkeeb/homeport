@@ -9,7 +9,7 @@ Homeport reads `.env` from the repository root. Relative paths resolve against t
 | `PORT` | `3000` | API port. The Vite dev proxy follows it |
 | `HOST` | `0.0.0.0` | Bind address. Use `127.0.0.1` for local-only |
 | `DATABASE_URL` | required | Postgres connection, e.g. `postgres://homeport:homeport@localhost:5432/homeport` |
-| `DB_MIGRATE` | `true` | Apply pending migrations on start |
+| `DB_MIGRATE` | `true` | Apply pending migrations on start, including the BullMQ job queue tables in the `bullmq` schema |
 | `STATE_DIR` | `state` | Private server files, currently the initial admin password |
 | `ADMIN_PASSWORD` | random | First start only: password for the `admin` account (8+ characters). If unset, a random one is written to `STATE_DIR/initial-admin-password.txt` and must be changed at first sign-in |
 | `SESSION_DAYS` | `30` | How long a sign-in lasts |
@@ -41,7 +41,21 @@ Files, attachments and HLS renditions live in MinIO or any S3-compatible server.
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `FFMPEG_PATH` / `FFPROBE_PATH` | `ffmpeg` / `ffprobe` | Binaries used to transcode video and audio to HLS. The Docker image ships them |
-| `TRANSCODE_CONCURRENCY` | `1` | Parallel transcodes. `0` turns the worker off and media plays from the original file |
+| `TRANSCODE_CONCURRENCY` | `1` | Parallel transcodes. Jobs run on a BullMQ queue stored in Postgres and retry up to 3 times with backoff. `0` turns the worker off and media plays from the original file. It also turns off the Watch and Music indexing workers |
+
+## Libraries
+
+Watch and Music index files from fixed folders in Files. Uploads there are indexed automatically, and **Rescan** (admins) picks up files copied straight into MinIO and drops entries whose file is gone.
+
+| Folder | Layout |
+| --- | --- |
+| `library/movies` | `Title (Year).mkv` or `Title (Year)/anything.mkv` |
+| `library/tv` | `Show (Year)/Season 01/Show S01E02 Title.mkv`. `1x02` names also work |
+| `library/music` | Read from file tags. Without tags, `Artist/Album/03 - Title.mp3`. Embedded cover art becomes the album cover. Music plays the original file, with no HLS transcode, so tracks can play back to back without a gap |
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `TMDB_TOKEN` | unset | TMDB v4 read access token. When set, movies and shows get posters, descriptions and episode titles. Without it, titles come from file names |
 
 ## Docker Compose
 

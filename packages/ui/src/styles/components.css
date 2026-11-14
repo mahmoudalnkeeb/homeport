@@ -1257,8 +1257,18 @@ body.dragging .dropzone {
 .sheet-action[data-tone='danger'] {
   color: var(--danger);
 }
+.sheet-action:hover {
+  text-decoration: none;
+}
+.sheet-action[aria-current='page'] {
+  color: var(--accent-text);
+  font-weight: 600;
+}
 .sheet-action .icon {
   color: var(--text-muted);
+}
+.sheet-action[aria-current='page'] .icon {
+  color: currentColor;
 }
 .sheet-action[data-tone='danger'] .icon {
   color: currentColor;
@@ -1315,11 +1325,23 @@ body.dragging .dropzone {
     align-items: center;
     justify-content: center;
     gap: 3px;
+    min-width: 0;
     height: var(--tabbar-h);
+    padding: 0 2px;
+    border: 0;
+    background: none;
     color: var(--text-muted);
+    font: inherit;
     font-size: var(--text-2xs);
     font-weight: 600;
+    cursor: pointer;
     -webkit-tap-highlight-color: transparent;
+  }
+  .tab span {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .tab:hover {
     text-decoration: none;
@@ -1947,5 +1969,86 @@ body.dragging .dropzone {
     width: auto;
     border-top: 1px solid var(--border);
     border-left: 0;
+  }
+}
+
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: var(--space-3);
+}
+.tile {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color var(--dur-fast);
+}
+.tile:hover {
+  border-color: var(--accent);
+}
+.tile-thumb {
+  position: relative;
+  display: grid;
+  place-items: center;
+  aspect-ratio: 4 / 3;
+  background: var(--surface-2);
+  color: var(--text-faint);
+}
+.tiles.is-poster .tile-thumb {
+  aspect-ratio: 2 / 3;
+}
+.tiles.is-square .tile-thumb {
+  aspect-ratio: 1;
+}
+.tile-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.tile-thumb .icon {
+  width: 32px;
+  height: 32px;
+  stroke-width: 1.25;
+}
+.tile-flag {
+  position: absolute;
+  bottom: var(--space-1);
+  left: var(--space-1);
+  padding: 1px var(--space-2);
+  border-radius: var(--radius-full);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: var(--text-2xs);
+}
+.tile-progress {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 3px;
+  background: color-mix(in srgb, var(--surface) 60%, transparent);
+}
+.tile-progress > span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+}
+.tile-info {
+  padding: var(--space-2) var(--space-3);
+}
+.tile-info .row-title {
+  display: block;
+  font-size: var(--text-sm);
+}
+@media (max-width: 800px) {
+  .tiles {
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
   }
 }

@@ -1,9 +1,10 @@
 import { Fragment, type ComponentChildren } from 'preact';
+import { useState } from 'preact/hooks';
 
 import { Icon, type IconName } from '../icons.js';
 import { setTheme, useTheme, type ThemeChoice } from '../theme.js';
 import { IconButton, Segmented } from './controls.js';
-import { FeedbackHost } from './feedback.js';
+import { Dialog, FeedbackHost } from './feedback.js';
 
 export interface NavItem {
   id: string;
@@ -84,8 +85,15 @@ function Brand({ brand }: { brand: string }) {
   );
 }
 
+const MAX_TABS = 5;
+
 export function AppShell({ brand, nav, tabs, activeId, user, onSignOut, flush = false, children }: AppShellProps) {
   const accountActive = activeId === 'account';
+  const [moreOpen, setMoreOpen] = useState(false);
+  const overflows = tabs.length > MAX_TABS;
+  const visibleTabs = overflows ? tabs.slice(0, MAX_TABS - 1) : tabs;
+  const moreTabs = overflows ? tabs.slice(MAX_TABS - 1) : [];
+  const moreActive = moreTabs.some((item) => item.id === activeId);
   return (
     <div class="app">
       <aside class="sidebar">
@@ -135,13 +143,43 @@ export function AppShell({ brand, nav, tabs, activeId, user, onSignOut, flush = 
       <main class={flush ? 'main flush' : 'main'}>{flush ? children : <div class="main-inner">{children}</div>}</main>
 
       <nav class="tabbar" aria-label="Main">
-        {tabs.map((item) => (
+        {visibleTabs.map((item) => (
           <a key={item.id} class="tab" href={item.href} aria-current={item.id === activeId ? 'page' : undefined}>
             <Icon name={item.icon} />
             <span>{item.label}</span>
           </a>
         ))}
+        {overflows && (
+          <button
+            type="button"
+            class="tab"
+            aria-haspopup="dialog"
+            aria-current={moreActive ? 'page' : undefined}
+            onClick={() => setMoreOpen(true)}
+          >
+            <Icon name="more" />
+            <span>More</span>
+          </button>
+        )}
       </nav>
+      {overflows && (
+        <Dialog open={moreOpen} onClose={() => setMoreOpen(false)} title="More">
+          <nav class="sheet-actions" aria-label="More">
+            {moreTabs.map((item) => (
+              <a
+                key={item.id}
+                class="sheet-action"
+                href={item.href}
+                aria-current={item.id === activeId ? 'page' : undefined}
+                onClick={() => setMoreOpen(false)}
+              >
+                <Icon name={item.icon} />
+                {item.label}
+              </a>
+            ))}
+          </nav>
+        </Dialog>
+      )}
       <FeedbackHost />
     </div>
   );

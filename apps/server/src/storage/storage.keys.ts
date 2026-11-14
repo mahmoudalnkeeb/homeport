@@ -4,6 +4,7 @@ import { extensionOf } from '@homeport/contracts';
 export const FILES_PREFIX = 'files/';
 export const ATTACHMENTS_PREFIX = 'attachments/';
 export const STREAMS_PREFIX = 'streams/';
+export const LIBRARY_PREFIX = 'library/';
 
 const INVALID_NAME = /[<>:"/\\|?*]/;
 const hasControlChars = (name: string) => [...name].some((char) => char.charCodeAt(0) < 32);

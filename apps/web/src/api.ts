@@ -1,5 +1,17 @@
 import type {
   ActivityEvent,
+  Album,
+  AlbumDetail,
+  AlbumQuery,
+  Artist,
+  LibraryQuery,
+  MusicTrack,
+  RescanResult,
+  Show,
+  ShowDetail,
+  Video,
+  WatchProgress,
+  WatchProgressBody,
   ActivitySnapshot,
   ApiErrorDetail,
   ApiErrorResponse,
@@ -149,6 +161,25 @@ export const api = {
     categories: async () => (await requestPage<AttachmentCategoryStats>('/api/attachments/categories')).items,
     rename: (id: string, name: string) => request<Attachment>(`/api/attachments/${q(id)}`, { method: 'PATCH', json: { name } }),
     remove: (id: string) => request<null>(`/api/attachments/${q(id)}`, { method: 'DELETE' }),
+  },
+
+  watch: {
+    movies: ({ q: search, page, pageSize }: LibraryQuery) => requestPage<Video>('/api/watch/movies', { q: search, page, pageSize }),
+    shows: ({ q: search, page, pageSize }: LibraryQuery) => requestPage<Show>('/api/watch/shows', { q: search, page, pageSize }),
+    show: (id: string) => request<ShowDetail>(`/api/watch/shows/${q(id)}`),
+    continueWatching: async () => (await requestPage<Video>('/api/watch/continue')).items,
+    saveProgress: (id: string, body: WatchProgressBody) =>
+      request<WatchProgress>(`/api/watch/progress/${q(id)}`, { method: 'PUT', json: body, keepalive: true }),
+    rescan: () => request<RescanResult>('/api/watch/rescan', { method: 'POST' }),
+  },
+
+  music: {
+    albums: ({ q: search, artist, page, pageSize }: AlbumQuery) =>
+      requestPage<Album>('/api/music/albums', { q: search, artist, page, pageSize }),
+    album: (id: string) => request<AlbumDetail>(`/api/music/albums/${q(id)}`),
+    artists: ({ q: search, page, pageSize }: LibraryQuery) => requestPage<Artist>('/api/music/artists', { q: search, page, pageSize }),
+    tracks: ({ q: search, page, pageSize }: LibraryQuery) => requestPage<MusicTrack>('/api/music/tracks', { q: search, page, pageSize }),
+    rescan: () => request<RescanResult>('/api/music/rescan', { method: 'POST' }),
   },
 };
 

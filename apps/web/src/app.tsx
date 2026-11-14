@@ -89,7 +89,6 @@ function Shell() {
     { ...home, label: 'Home' },
     ...toolItems,
     ...(can('users:manage') ? [usersItem] : []),
-    { id: 'account', label: 'Account', href: '/account', icon: 'user' },
   ];
 
   const activeId = activeIdOf(path);

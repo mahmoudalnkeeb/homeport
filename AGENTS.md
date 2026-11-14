@@ -46,7 +46,7 @@ Make the smallest correct change that fits the existing architecture. Optimize t
 - Responses are always `{ data }`, `{ data, meta }` for lists, or `{ error: { status, code, message, details? } }`. `ResponseInterceptor` and `HttpErrorFilter` produce them; never build an envelope by hand.
 - A service returning a list returns `Paginated` (`Paginated.of` for DB queries, `Paginated.slice` for in-memory lists, `Paginated.all` for short fixed lists). Returning a bare array from a handler is an error.
 - Use `AppError(status, code, message)` when the client needs a specific `ErrorCode`; otherwise plain Nest exceptions.
-- Zod stays for non-HTTP input only: environment variables (`config/env.ts`) and the host agent's response (`hostMetricsSchema`).
+- Zod stays for non-HTTP input only: environment variables (`config/env.ts`), process output (ffprobe) and third-party responses (the host agent's `hostMetricsSchema`, TMDB).
 - Never trust TypeScript types to validate runtime data.
 - Never trust TypeScript types to validate runtime data.
 

@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ActivityService } from '../src/activity/activity.service.js';
 import type { Database } from '../src/database/database.js';
@@ -7,7 +7,7 @@ import { AttachmentsService } from '../src/tools/attachments/attachments.service
 import { FilesService } from '../src/tools/files/files.service.js';
 import { users, type Actor } from '../src/users/users.schema.js';
 import { MemoryStorage } from './memory-storage.js';
-import { createTestDatabase } from './support.js';
+import { createTestDatabase, libraryServices } from './support.js';
 
 const page = { page: 1, pageSize: 50 };
 
@@ -22,14 +22,16 @@ describe('FilesService', () => {
   let alice: Actor;
   let db: Database;
   let closeDb: () => Promise<void>;
+  let library: ReturnType<typeof libraryServices>;
 
   beforeEach(async () => {
     ({ db, close: closeDb } = await createTestDatabase());
     storage = new MemoryStorage();
     activity = new ActivityService(db);
-    media = new MediaService(db, storage);
+    media = new MediaService(db, storage, { add: vi.fn(), addBulk: vi.fn() });
     attachments = new AttachmentsService(db, storage, media, activity);
-    files = new FilesService(storage, media, activity, attachments);
+    library = libraryServices(db, storage, media);
+    files = new FilesService(storage, media, activity, attachments, library.watch, library.music);
     const rows = await db
       .insert(users)
       .values(
@@ -54,6 +56,31 @@ describe('FilesService', () => {
     await storage.upload(ticket, body);
     return files.finishUpload(actor, { target: ticket.target });
   };
+
+  describe('library folders', () => {
+    it('indexes uploads under the library roots and skips HLS for music', async () => {
+      const movie = await upload(admin, 'library/movies', 'Heat (1995).mp4', 'v');
+      const song = await upload(admin, 'library/music', 'song.mp3', 'a');
+
+      expect(movie.stream).not.toBeNull();
+      expect(song.stream).toBeNull();
+      expect(library.watchQueue.add).toHaveBeenCalledWith('index', { key: 'files/library/movies/Heat (1995).mp4' });
+      expect(library.musicQueue.add).toHaveBeenCalledWith('index', { key: 'files/library/music/song.mp3' });
+    });
+
+    it('forgets and re-indexes library files on rename and delete', async () => {
+      await upload(admin, 'library/music/Old', 'song.mp3', 'a');
+      await library.music.saveTrack('files/library/music/Old/song.mp3', { title: 's', artist: 'a', albumArtist: 'a', album: 'Old', trackNo: null, discNo: null, year: null }, 1);
+
+      await files.rename(admin, 'library/music/Old', 'New');
+      expect((await library.music.tracks(page)).items).toEqual([]);
+      expect(library.musicQueue.add).toHaveBeenLastCalledWith('index', { key: 'files/library/music/New/song.mp3' });
+
+      await library.music.saveTrack('files/library/music/New/song.mp3', { title: 's', artist: 'a', albumArtist: 'a', album: 'New', trackNo: null, discNo: null, year: null }, 1);
+      await files.remove(admin, 'library/music/New/song.mp3');
+      expect((await library.music.tracks(page)).items).toEqual([]);
+    });
+  });
 
   it('lists folders first, including implicit ones, and hides dotfiles', async () => {
     await files.createFolder(admin, 'music');

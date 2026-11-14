@@ -1,6 +1,8 @@
+import { InjectQueue } from '@nestjs/bullmq';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { hasPermission, pathAccess, type StreamInfo } from '@homeport/contracts';
-import { and, asc, eq, inArray, sql } from 'drizzle-orm';
+import type { Queue } from 'bullmq';
+import { eq, inArray, sql } from 'drizzle-orm';
 
 import { InjectDb, type Database } from '../database/database.js';
 import { ATTACHMENTS_PREFIX, FILES_PREFIX, STREAMS_PREFIX } from '../storage/storage.keys.js';
@@ -10,6 +12,13 @@ import { mediaStreams, type MediaStream, type StreamKind } from './media.schema.
 import { POSTER, type TranscodeResult } from './transcode.js';
 
 export type MediaFile = { type: 'playlist'; body: string } | { type: 'redirect'; url: string };
+
+export const MEDIA_QUEUE = 'media';
+export const TRANSCODE_JOB = 'transcode';
+export interface TranscodeJob {
+  id: string;
+}
+export type MediaQueue = Pick<Queue<TranscodeJob>, 'add' | 'addBulk'>;
 
 const MAX_ERROR_LENGTH = 500;
 const streamPrefix = (id: string) => `${STREAMS_PREFIX}${id}/`;
@@ -37,7 +46,8 @@ function canRead(actor: Actor, key: string): boolean {
 export class MediaService {
   constructor(
     @InjectDb() private readonly db: Database,
-    private readonly storage: StorageService
+    private readonly storage: StorageService,
+    @InjectQueue(MEDIA_QUEUE) private readonly queue: MediaQueue
   ) {}
 
   async enqueue(sourceKey: string, kind: StreamKind): Promise<StreamInfo> {
@@ -50,6 +60,7 @@ export class MediaService {
       })
       .returning();
     if (!row) throw new Error('Insert returned no row');
+    await this.queue.add(TRANSCODE_JOB, { id: row.id }, { jobId: row.id });
     return toStreamInfo(row);
   }
 
@@ -84,24 +95,24 @@ export class MediaService {
       .where(sql`starts_with(${mediaStreams.sourceKey}, ${from})`);
   }
 
-  async recoverInterrupted(): Promise<void> {
-    await this.db.update(mediaStreams).set({ status: 'pending' }).where(eq(mediaStreams.status, 'processing'));
+  async requeueUnfinished(): Promise<number> {
+    const rows = await this.db
+      .update(mediaStreams)
+      .set({ status: 'pending' })
+      .where(inArray(mediaStreams.status, ['pending', 'processing']))
+      .returning({ id: mediaStreams.id });
+    if (!rows.length) return 0;
+    await this.queue.addBulk(rows.map(({ id }) => ({ name: TRANSCODE_JOB, data: { id }, opts: { jobId: id } })));
+    return rows.length;
   }
 
-  async claim(): Promise<MediaStream | undefined> {
-    const [next] = await this.db
-      .select({ id: mediaStreams.id })
-      .from(mediaStreams)
-      .where(eq(mediaStreams.status, 'pending'))
-      .orderBy(asc(mediaStreams.createdAt))
-      .limit(1);
-    if (!next) return undefined;
-    const [claimed] = await this.db
+  async start(id: string): Promise<MediaStream | undefined> {
+    const [row] = await this.db
       .update(mediaStreams)
-      .set({ status: 'processing', attempts: sql`${mediaStreams.attempts} + 1`, updatedAt: new Date() })
-      .where(and(eq(mediaStreams.id, next.id), eq(mediaStreams.status, 'pending')))
+      .set({ status: 'processing', attempts: sql`${mediaStreams.attempts} + 1`, error: null, updatedAt: new Date() })
+      .where(eq(mediaStreams.id, id))
       .returning();
-    return claimed;
+    return row;
   }
 
   async complete(id: string, result: TranscodeResult): Promise<boolean> {

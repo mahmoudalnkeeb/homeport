@@ -1,4 +1,4 @@
-import type { ActivityEvent, ActivitySnapshot, SystemSnapshot, ToolInfo, ToolSummary, UserInfo, UserStats } from '@homeport/contracts';
+import { kindOf, type ActivityEvent, type ActivitySnapshot, type SystemSnapshot, type ToolInfo, type ToolSummary, type UserInfo, type UserStats } from '@homeport/contracts';
 import {
   Badge,
   BarList,
@@ -40,7 +40,21 @@ const EVENT_ICON: Record<string, IconName> = {
   delete: 'trash',
   rename: 'pencil',
   mkdir: 'folder-plus',
+  create: 'user',
+  update: 'pencil',
+  'reset password': 'key',
 };
+
+const AREA_LABELS: Record<string, string> = {
+  home: 'Home',
+  auth: 'Sign-in',
+  users: 'Users',
+  media: 'Streaming',
+};
+
+const RECENT_SPAN = { 1: 12, 2: 6 } as const;
+const recentSpan = (count: number) => RECENT_SPAN[count as keyof typeof RECENT_SPAN] ?? 4;
+const filledTiles = (summary: ToolSummary) => summary.tiles.filter((tile) => tile.value !== '0');
 
 const withCode = (text: string) =>
   text.split('`').map((part, i) => (i % 2 ? <code key={i}>{part}</code> : part));
@@ -148,7 +162,7 @@ function ActivityFeed({ events, areaName }: { events: ActivityEvent[]; areaName:
   return (
     <Card span={8} title="Activity" icon="activity" aside={<span class="faint">everyone</span>}>
       {events.length ? (
-        <Rows class="feed">
+        <Rows class="feed feed-fill">
           {events.map((event) => (
             <Row
               key={`${event.at}-${event.detail}`}
@@ -201,7 +215,8 @@ export default function ControlCenter() {
   const people = useResource(() => api.users.page({ pageSize: 4 }), { interval: 30000 });
   const peopleStats = useResource(api.users.stats, { interval: 30000 });
 
-  const areaName = (area: string) => (area === 'home' ? 'Home' : (tools.find((tool) => tool.id === area)?.name ?? area));
+  const areaName = (area: string) => AREA_LABELS[area] ?? tools.find((tool) => tool.id === area)?.name ?? area;
+  const recent = (summaries.data ?? []).filter(({ summary }) => summary.recent);
   const lanUrl = system.data?.urls[0];
   const online = !system.error;
 
@@ -253,14 +268,6 @@ export default function ControlCenter() {
               Add user<small>Admin</small>
             </span>
           </a>
-          <button type="button" class="action" onClick={() => copyText(lanUrl ?? location.origin, 'Address copied')}>
-            <span class="row-icon">
-              <Icon name="link" />
-            </span>
-            <span>
-              Copy LAN address<small>Open from another device</small>
-            </span>
-          </button>
         </div>
       </Section>
 
@@ -318,27 +325,27 @@ export default function ControlCenter() {
 
       <Section title="Recent">
         <Grid>
-          {(summaries.data ?? [])
-            .filter(({ summary }) => summary.recent)
-            .map(({ tool, summary }) => (
-              <Card key={tool.id} span={6} title={`Recent · ${tool.name}`} icon={tool.icon} aside={<a href={tool.href}>View all</a>}>
-                {summary.recent?.length ? (
-                  <Rows>
-                    {summary.recent.slice(0, 6).map((item) => (
-                      <Row
-                        key={item.href}
-                        href={item.href}
-                        icon={tool.id === 'markdown' ? 'file-text' : 'file'}
-                        title={item.label}
-                        meta={`${formatBytes(item.size)} · ${timeAgo(item.modified)}`}
-                      />
-                    ))}
-                  </Rows>
-                ) : (
-                  <EmptyState icon={KIND_ICON.other} title="Nothing here yet" />
-                )}
-              </Card>
-            ))}
+          {recent.map(({ tool, summary }) => (
+            <Card key={tool.id} span={recentSpan(recent.length)} title={tool.name} icon={tool.icon} aside={<a href={tool.href}>View all</a>}>
+              {summary.recent?.length ? (
+                <Rows>
+                  {summary.recent.slice(0, 6).map((item) => (
+                    <Row
+                      key={item.href}
+                      href={item.href}
+                      icon={KIND_ICON[kindOf(item.label)]}
+                      title={item.label}
+                      meta={`${formatBytes(item.size)} · ${timeAgo(item.modified)}`}
+                    />
+                  ))}
+                </Rows>
+              ) : (
+                <EmptyState icon="clock" title={`No ${tool.name.toLowerCase()} activity yet`}>
+                  <a href={tool.href}>Open {tool.name}</a>
+                </EmptyState>
+              )}
+            </Card>
+          ))}
         </Grid>
       </Section>
 
@@ -353,6 +360,7 @@ export default function ControlCenter() {
         <div class="tool-grid">
           {tools.map((tool) => {
             const summary = summaries.data?.find((entry) => entry.tool.id === tool.id)?.summary;
+            const tiles = summary ? filledTiles(summary) : [];
             return (
               <Card key={tool.id} href={tool.href} class="tool-card">
                 <Cluster>
@@ -366,11 +374,15 @@ export default function ControlCenter() {
                 <p>{tool.description}</p>
                 {summary && (
                   <Cluster>
-                    {summary.tiles.map((tile) => (
-                      <Badge key={tile.label}>
-                        {tile.value} {tile.label.toLowerCase()}
-                      </Badge>
-                    ))}
+                    {tiles.length ? (
+                      tiles.map((tile) => (
+                        <Badge key={tile.label}>
+                          {tile.value} {tile.label.toLowerCase()}
+                        </Badge>
+                      ))
+                    ) : (
+                      <span class="faint">Empty</span>
+                    )}
                   </Cluster>
                 )}
               </Card>

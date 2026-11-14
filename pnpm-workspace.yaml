@@ -5,6 +5,7 @@ packages:
 allowBuilds:
   '@swc/core': true
   esbuild: true
+  msgpackr-extract: false
 
 overrides:
   '@esbuild-kit/core-utils>esbuild': ^0.25.12

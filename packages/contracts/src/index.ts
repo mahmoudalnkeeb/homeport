@@ -62,12 +62,14 @@ export const PERMISSIONS = [
   'attachments:read',
   'attachments:write',
   'design:read',
+  'library:read',
+  'library:manage',
 ] as const;
 export type Permission = (typeof PERMISSIONS)[number];
 
 export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
   admin: PERMISSIONS,
-  member: ['files:read', 'files:write', 'attachments:read', 'attachments:write'],
+  member: ['files:read', 'files:write', 'attachments:read', 'attachments:write', 'library:read'],
 };
 
 export const hasPermission = (role: Role, permission: Permission): boolean => ROLE_PERMISSIONS[role].includes(permission);
@@ -363,4 +365,93 @@ export interface ActivitySnapshot {
 
 export interface PageViewBody {
   path: string;
+}
+
+export const LIBRARY_ROOTS = { movies: 'library/movies', tv: 'library/tv', music: 'library/music' } as const;
+
+export const WATCH_COMPLETE_RATIO = 0.9;
+
+export interface WatchProgress {
+  position: number;
+  duration: number;
+  completed: boolean;
+  updatedAt: string;
+}
+
+export interface WatchProgressBody {
+  position: number;
+  duration: number;
+}
+
+export interface Video {
+  id: string;
+  kind: 'movie' | 'episode';
+  title: string;
+  year: number | null;
+  overview: string | null;
+  poster: string | null;
+  showId: string | null;
+  season: number | null;
+  episode: number | null;
+  path: string;
+  stream: StreamInfo | null;
+  progress: WatchProgress | null;
+}
+
+export interface Show {
+  id: string;
+  title: string;
+  year: number | null;
+  overview: string | null;
+  poster: string | null;
+  episodes: number;
+}
+
+export interface ShowDetail extends Show {
+  videos: Video[];
+}
+
+export interface Album {
+  id: string;
+  title: string;
+  albumArtist: string;
+  year: number | null;
+  cover: string | null;
+  tracks: number;
+}
+
+export interface MusicTrack {
+  id: string;
+  title: string;
+  artist: string;
+  albumId: string;
+  album: string;
+  trackNo: number | null;
+  discNo: number | null;
+  duration: number | null;
+  url: string;
+  cover: string | null;
+}
+
+export interface AlbumDetail extends Album {
+  trackList: MusicTrack[];
+}
+
+export interface Artist {
+  name: string;
+  albums: number;
+  cover: string | null;
+}
+
+export interface LibraryQuery extends PaginationQuery {
+  q?: string;
+}
+
+export interface AlbumQuery extends LibraryQuery {
+  artist?: string;
+}
+
+export interface RescanResult {
+  queued: number;
+  removed: number;
 }

@@ -1,0 +1,26 @@
+.watch-row {
+  margin-bottom: var(--space-4);
+}
+.watch-pages {
+  margin-top: var(--space-4);
+}
+.watch-detail {
+  display: grid;
+  grid-template-columns: minmax(120px, 200px) minmax(0, 1fr);
+  gap: var(--space-4);
+  align-items: start;
+}
+.watch-detail img {
+  width: 100%;
+  aspect-ratio: 2 / 3;
+  object-fit: cover;
+  border-radius: var(--radius-md);
+}
+@media (max-width: 640px) {
+  .watch-detail {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .watch-detail img {
+    max-width: 160px;
+  }
+}

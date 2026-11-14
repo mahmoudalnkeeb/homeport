@@ -44,6 +44,7 @@ export const envSchema = z
     FFMPEG_PATH: z.string().min(1).default('ffmpeg'),
     FFPROBE_PATH: z.string().min(1).default('ffprobe'),
     TRANSCODE_CONCURRENCY: z.coerce.number().int().min(0).max(8).default(1),
+    TMDB_TOKEN: optional(z.string().min(20)),
     LAN_URLS: z
       .string()
       .default('')

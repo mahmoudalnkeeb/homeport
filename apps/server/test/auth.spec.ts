@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { pathAccess } from '@homeport/contracts';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ActivityService } from '../src/activity/activity.service.js';
 import { AuthService } from '../src/auth/auth.service.js';
@@ -17,7 +17,7 @@ import { hashPassword, verifyPassword } from '../src/users/password.js';
 import type { Actor } from '../src/users/users.schema.js';
 import { UsersService } from '../src/users/users.service.js';
 import { MemoryStorage } from './memory-storage.js';
-import { createTestDatabase, testEnv } from './support.js';
+import { createTestDatabase, libraryServices, testEnv } from './support.js';
 
 describe('passwords', () => {
   it('verifies the right password only, with a fresh salt each time', async () => {
@@ -58,8 +58,9 @@ describe('AuthService + UsersService', () => {
     const config = testEnv({ STATE_DIR: join(dir, 'state'), ...env });
     const activity = new ActivityService(db);
     const storage = new MemoryStorage();
-    const media = new MediaService(db, storage);
-    const files = new FilesService(storage, media, activity, new AttachmentsService(db, storage, media, activity));
+    const media = new MediaService(db, storage, { add: vi.fn(), addBulk: vi.fn() });
+    const { watch, music } = libraryServices(db, storage, media);
+    const files = new FilesService(storage, media, activity, new AttachmentsService(db, storage, media, activity), watch, music);
     await files.onModuleInit();
     const sessionStore = new SessionsService(db, config);
     const users = new UsersService(db, config, sessionStore, files, activity);

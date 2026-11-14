@@ -20,6 +20,9 @@ export interface Track {
   src: string;
   download: string;
   stream: StreamInfo | null | undefined;
+  poster?: string | null;
+  startAt?: number;
+  onProgress?: (position: number, duration: number) => void;
 }
 
 interface Queue {
@@ -29,10 +32,12 @@ interface Queue {
 }
 
 type Play = (tracks: Track[], index: number) => void;
+type Append = (tracks: Track[]) => void;
 
-const PlayerContext = createContext<Play>(() => undefined);
+const PlayerContext = createContext<{ play: Play; append: Append }>({ play: () => undefined, append: () => undefined });
 
-export const usePlayer = (): Play => useContext(PlayerContext);
+export const usePlayer = (): Play => useContext(PlayerContext).play;
+export const useAppend = (): Append => useContext(PlayerContext).append;
 
 const toDockTrack = (track: Track): DockTrack => ({
   id: track.id,
@@ -40,7 +45,9 @@ const toDockTrack = (track: Track): DockTrack => ({
   title: track.title,
   src: track.src,
   hls: track.stream?.status === 'ready' ? track.stream.playlist : null,
-  poster: track.stream?.poster ?? null,
+  poster: track.poster ?? track.stream?.poster ?? null,
+  startAt: track.startAt,
+  onProgress: track.onProgress,
 });
 
 function StreamNotice({ stream }: { stream: StreamInfo | null | undefined }) {
@@ -62,12 +69,17 @@ function StreamNotice({ stream }: { stream: StreamInfo | null | undefined }) {
 export function PlayerProvider({ children }: { children: ComponentChildren }) {
   const [queue, setQueue] = useState<Queue | null>(null);
   const play = useCallback<Play>((tracks, index) => setQueue({ tracks, index, minimized: false }), []);
+  const append = useCallback<Append>(
+    (tracks) => setQueue((current) => (current ? { ...current, tracks: [...current.tracks, ...tracks] } : { tracks, index: 0, minimized: true })),
+    []
+  );
+  const actions = useMemo(() => ({ play, append }), [play, append]);
   const dockTracks = useMemo(() => queue?.tracks.map(toDockTrack) ?? [], [queue?.tracks]);
   const update = (patch: Partial<Queue>) => setQueue((current) => (current ? { ...current, ...patch } : current));
   const track = queue?.tracks[queue.index];
 
   return (
-    <PlayerContext.Provider value={play}>
+    <PlayerContext.Provider value={actions}>
       {children}
       {queue && track && (
         <MediaDock

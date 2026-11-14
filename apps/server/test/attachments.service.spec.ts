@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ActivityService } from '../src/activity/activity.service.js';
 import type { Database } from '../src/database/database.js';
@@ -22,7 +22,7 @@ describe('AttachmentsService', () => {
   beforeEach(async () => {
     ({ db, close: closeDb } = await createTestDatabase());
     storage = new MemoryStorage();
-    service = new AttachmentsService(db, storage, new MediaService(db, storage), new ActivityService(db));
+    service = new AttachmentsService(db, storage, new MediaService(db, storage, { add: vi.fn(), addBulk: vi.fn() }), new ActivityService(db));
     const rows = await db
       .insert(users)
       .values(

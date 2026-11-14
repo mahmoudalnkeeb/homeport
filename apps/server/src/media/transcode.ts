@@ -157,6 +157,53 @@ export async function probe(tools: Tools, input: string): Promise<Probe> {
   };
 }
 
+export interface TagProbe {
+  duration: number | null;
+  tags: Record<string, string>;
+  hasCover: boolean;
+}
+
+const tagSchema = z.object({
+  format: z
+    .object({
+      duration: z.coerce.number().optional(),
+      tags: z.record(z.string(), z.coerce.string()).optional(),
+    })
+    .optional(),
+  streams: z
+    .array(
+      z.object({
+        codec_type: z.string().optional(),
+        disposition: z.object({ attached_pic: z.number().optional() }).optional(),
+        tags: z.record(z.string(), z.coerce.string()).optional(),
+      })
+    )
+    .default([]),
+});
+
+export async function probeTags(tools: Tools, input: string): Promise<TagProbe> {
+  const output = await run(
+    tools.ffprobe,
+    ['-v', 'error', '-show_entries', 'format=duration:format_tags:stream=codec_type:stream_disposition=attached_pic:stream_tags', '-of', 'json', input],
+    { signal: tools.signal }
+  );
+  const parsed = tagSchema.parse(JSON.parse(output));
+  const audioTags = parsed.streams.find((stream) => stream.codec_type === 'audio')?.tags ?? {};
+  const tags = Object.fromEntries(Object.entries({ ...audioTags, ...parsed.format?.tags }).map(([key, value]) => [key.toLowerCase(), value.trim()]));
+  const duration = parsed.format?.duration;
+  return {
+    duration: duration !== undefined && Number.isFinite(duration) ? duration : null,
+    tags,
+    hasCover: parsed.streams.some((stream) => stream.codec_type === 'video' && stream.disposition?.attached_pic === 1),
+  };
+}
+
+export async function extractCover(tools: Tools, input: string, output: string): Promise<void> {
+  await run(tools.ffmpeg, ['-hide_banner', '-loglevel', 'error', '-y', '-i', input, '-map', '0:v:0', '-frames:v', '1', '-vf', 'scale=min(600\\,iw):-2', output], {
+    signal: tools.signal,
+  });
+}
+
 export async function transcode(tools: Tools, input: string, outDir: string, kind: StreamKind): Promise<TranscodeResult> {
   const info = await probe(tools, input);
   if (!info.hasVideo && !info.hasAudio) throw new Error('No audio or video stream found');

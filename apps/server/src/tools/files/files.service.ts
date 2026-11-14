@@ -31,6 +31,8 @@ import { assertValidName, contentTypeOf, FILES_PREFIX } from '../../storage/stor
 import { StorageService } from '../../storage/storage.service.js';
 import type { Actor } from '../../users/users.schema.js';
 import { AttachmentsService } from '../attachments/attachments.service.js';
+import { MusicService } from '../music/music.service.js';
+import { WatchService } from '../watch/watch.service.js';
 import { formatBytes } from '../format.js';
 import type { FolderQueryDto, RecentQueryDto } from './files.dto.js';
 
@@ -107,8 +109,27 @@ export class FilesService implements OnModuleInit {
     private readonly storage: StorageService,
     private readonly media: MediaService,
     private readonly activity: ActivityService,
-    private readonly attachments: AttachmentsService
+    private readonly attachments: AttachmentsService,
+    private readonly watch: WatchService,
+    private readonly music: MusicService
   ) {}
+
+  private async indexLibrary(keys: string[]): Promise<void> {
+    for (const key of keys) {
+      await this.watch.index(key);
+      await this.music.index(key);
+    }
+  }
+
+  private async forgetLibrary(keys: string[]): Promise<void> {
+    await this.watch.forget(keys);
+    await this.music.forget(keys);
+  }
+
+  private async forgetLibraryPrefix(prefix: string): Promise<void> {
+    await this.watch.forgetPrefix(prefix);
+    await this.music.forgetPrefix(prefix);
+  }
 
   async onModuleInit(): Promise<void> {
     await this.storage.put(folderKey(USERS_FOLDER), '', 'application/x-directory');
@@ -217,7 +238,8 @@ export class FilesService implements OnModuleInit {
     this.reserved.delete(path);
     await this.attachments.track(actor, keyOf(path), object.size);
     const kind = kindOf(path);
-    const stream = isStreamable(kind) ? await this.media.enqueue(keyOf(path), kind) : null;
+    const stream = isStreamable(kind) && !this.music.owns(keyOf(path)) ? await this.media.enqueue(keyOf(path), kind) : null;
+    await this.indexLibrary([keyOf(path)]);
     await this.changed(actor, 'upload', path);
     return { name: nameOf(path), path, kind, size: object.size, modified: object.modified.toISOString(), stream };
   }
@@ -261,11 +283,15 @@ export class FilesService implements OnModuleInit {
       await this.storage.move(file, keyOf(target));
       await this.media.move(keyOf(rel), keyOf(target));
       await this.attachments.move(keyOf(rel), keyOf(target));
+      await this.forgetLibrary([keyOf(rel)]);
+      await this.indexLibrary([keyOf(target)]);
     } else {
       const [from, to] = [folderKey(rel), folderKey(target)];
       for (const object of objects) await this.storage.move(object, `${to}${object.key.slice(from.length)}`);
       await this.media.movePrefix(from, to);
       await this.attachments.movePrefix(from, to);
+      await this.forgetLibraryPrefix(from);
+      await this.indexLibrary(objects.map((object) => `${to}${object.key.slice(from.length)}`));
     }
     await this.changed(actor, 'rename', `${rel} → ${name}`);
     return { path: target };
@@ -278,12 +304,14 @@ export class FilesService implements OnModuleInit {
       await this.storage.remove([keyOf(rel)]);
       await this.media.forget([keyOf(rel)]);
       await this.attachments.forget([keyOf(rel)]);
+      await this.forgetLibrary([keyOf(rel)]);
     } else {
       const prefix = folderKey(rel);
       if (!(await this.storage.any(prefix))) throw new NotFoundException('Not found');
       await this.storage.removePrefix(prefix);
       await this.media.forgetPrefix(prefix);
       await this.attachments.forgetPrefix(prefix);
+      await this.forgetLibraryPrefix(prefix);
     }
     await this.changed(actor, 'delete', rel);
   }

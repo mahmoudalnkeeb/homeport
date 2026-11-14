@@ -31,7 +31,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks'
 
 import { api, uploadAttachments } from '../../api';
 import { useAuth } from '../../auth';
-import { PHONE, useFileDrop, useMediaQuery, usePreference, useResource } from '../../hooks';
+import { PHONE, useDebounced, useFileDrop, useMediaQuery, usePreference, useResource } from '../../hooks';
 import { streamLabel, usePlayer, type Track } from '../../media';
 import { UploadList, useUploads } from '../../uploads';
 import '../../library.css';
@@ -76,15 +76,6 @@ const attachmentsUrl = (filter: Filter, extra = '') => {
   if (filter !== 'all') params.set('category', filter);
   return `/tools/attachments${params.size ? `?${params}` : ''}`;
 };
-
-function useDebounced<T>(value: T, delay: number): T {
-  const [debounced, setDebounced] = useState(value);
-  useEffect(() => {
-    const timer = setTimeout(() => setDebounced(value), delay);
-    return () => clearTimeout(timer);
-  }, [value, delay]);
-  return debounced;
-}
 
 function TextBody({ url }: { url: string }) {
   const [text, setText] = useState<string>();

@@ -5,15 +5,19 @@ import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import { getQueueToken } from '@nestjs/bullmq';
 import { NodeAdapter, type NestNodeApplication } from '@nestjs/platform-node';
 import { Test } from '@nestjs/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { AppModule } from '../src/app.module.js';
 import { DB } from '../src/database/database.js';
+import { MEDIA_QUEUE } from '../src/media/media.service.js';
 import { StorageService } from '../src/storage/storage.service.js';
+import { MUSIC_QUEUE } from '../src/tools/music/music.service.js';
+import { WATCH_QUEUE } from '../src/tools/watch/watch.service.js';
 import { MemoryStorage } from './memory-storage.js';
-import { createTestDatabase } from './support.js';
+import { createTestDatabase, fakeQueue } from './support.js';
 
 describe('HTTP API', () => {
   let app: NestNodeApplication;
@@ -39,6 +43,12 @@ describe('HTTP API', () => {
       .useValue(database.db)
       .overrideProvider(StorageService)
       .useValue(storage)
+      .overrideProvider(getQueueToken(MEDIA_QUEUE))
+      .useValue(fakeQueue())
+      .overrideProvider(getQueueToken(WATCH_QUEUE))
+      .useValue(fakeQueue())
+      .overrideProvider(getQueueToken(MUSIC_QUEUE))
+      .useValue(fakeQueue())
       .compile();
     app = moduleRef.createNestApplication<NestNodeApplication>(new NodeAdapter(), { logger: false });
     app.setGlobalPrefix('api');

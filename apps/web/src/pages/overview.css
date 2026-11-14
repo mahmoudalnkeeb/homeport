@@ -1,6 +1,6 @@
 .actions {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: var(--space-3);
 }
 .action {
@@ -28,6 +28,9 @@
   background: var(--accent-soft);
   color: var(--accent-text);
 }
+.action > span:last-child {
+  min-width: 0;
+}
 .action small {
   display: block;
   color: var(--text-faint);
@@ -44,7 +47,7 @@
 
 .tool-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   gap: var(--space-3);
 }
 .tool-card .row-icon {
@@ -57,6 +60,10 @@
   font-size: var(--text-md);
 }
 .tool-card p {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
   color: var(--text-muted);
   font-size: var(--text-sm);
 }
@@ -72,6 +79,11 @@
 .feed {
   max-height: 320px;
   overflow: auto;
+}
+.feed-fill {
+  flex: 1 1 0;
+  min-height: 240px;
+  max-height: none;
 }
 .feed .row-icon {
   width: 24px;

@@ -3,7 +3,7 @@ import { mkdtemp, readdir, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { Database } from '../src/database/database.js';
 import { MediaService } from '../src/media/media.service.js';
@@ -41,34 +41,60 @@ describe('videoRenditions', () => {
 describe('MediaService', () => {
   let storage: MemoryStorage;
   let media: MediaService;
+  let queue: { add: ReturnType<typeof vi.fn>; addBulk: ReturnType<typeof vi.fn> };
   let db: Database;
   let closeDb: () => Promise<void>;
 
   beforeEach(async () => {
     ({ db, close: closeDb } = await createTestDatabase());
     storage = new MemoryStorage();
-    media = new MediaService(db, storage);
+    queue = { add: vi.fn(), addBulk: vi.fn() };
+    media = new MediaService(db, storage, queue);
   });
 
   afterEach(() => closeDb());
 
   const ready = async (sourceKey: string) => {
     const { id } = await media.enqueue(sourceKey, 'video');
-    const job = await media.claim();
-    expect(job?.id).toBe(id);
+    await media.start(id);
     await media.complete(id, { duration: 12.5, hasPoster: true });
     await storage.put(`streams/${id}/master.m3u8`, '#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=900000\nv0/index.m3u8\n');
     await storage.put(`streams/${id}/v0/index.m3u8`, '#EXTM3U\n#EXTINF:4.0,\nseg_0000.ts\n#EXT-X-ENDLIST\n');
     return id;
   };
 
-  it('hands each pending job to exactly one worker and resumes interrupted ones', async () => {
-    const { id } = await media.enqueue('files/a.mp4', 'video');
+  it('queues one transcode job per stream and marks it processing when a worker starts it', async () => {
+    const { id, status } = await media.enqueue('files/a.mp4', 'video');
 
-    expect((await media.claim())?.id).toBe(id);
-    expect(await media.claim()).toBeUndefined();
-    await media.recoverInterrupted();
-    expect((await media.claim())?.id).toBe(id);
+    expect(status).toBe('pending');
+    expect(queue.add).toHaveBeenCalledWith('transcode', { id }, { jobId: id });
+    expect(await media.start(id)).toMatchObject({ id, status: 'processing', attempts: 1, sourceKey: 'files/a.mp4' });
+
+    await media.fail(id, 'boom');
+    expect(await media.enqueue('files/a.mp4', 'video')).toMatchObject({ id, status: 'pending' });
+    expect(queue.add).toHaveBeenLastCalledWith('transcode', { id }, { jobId: id });
+  });
+
+  it('skips jobs whose source was deleted before a worker picked them up', async () => {
+    const { id } = await media.enqueue('files/gone.mp4', 'video');
+    await media.forget(['files/gone.mp4']);
+
+    expect(await media.start(id)).toBeUndefined();
+  });
+
+  it('requeues streams left pending or processing, leaving finished ones alone', async () => {
+    const pending = (await media.enqueue('files/a.mp4', 'video')).id;
+    const processing = (await media.enqueue('files/b.mp4', 'video')).id;
+    const failed = (await media.enqueue('files/c.mp4', 'video')).id;
+    await media.start(processing);
+    await media.fail(failed, 'boom');
+
+    expect(await media.requeueUnfinished()).toBe(2);
+    expect(queue.addBulk).toHaveBeenCalledWith(
+      expect.arrayContaining([pending, processing].map((id) => ({ name: 'transcode', data: { id }, opts: { jobId: id } })))
+    );
+    expect(queue.addBulk.mock.calls[0]?.[0]).toHaveLength(2);
+    expect((await media.streamsFor(['files/b.mp4'])).get('files/b.mp4')?.status).toBe('pending');
   });
 
   it('serves playlists that point back at the API and at signed segment URLs', async () => {
